@@ -152,7 +152,7 @@ public class FilterClauseTest {
 
     @Test
     @DisplayName("Filter: isNull 함수 테스트")
-    void testFilterWithIsNull() throws Exception {
+    void testFilterWithFuncIsnull() throws Exception {
         String json = "{\n"
                 + "  \"input\": \"df\",\n"
                 + "  \"steps\": [\n"
@@ -239,5 +239,215 @@ public class FilterClauseTest {
         printTestInfo("testFilterWithCaseWhen", json, actual);
         assertEquals(expected, actual);
     }
+
+    @Test
+    @DisplayName("Filter: 컬럼에 isNull 테스트")
+    void testFilterWithColumnIsNull() throws Exception {
+        String json = "{\n"
+                + "  \"input\": \"df\",\n"
+                + "  \"steps\": [\n"
+                + "    {\n"
+                + "      \"step\": \"where\",\n"
+                + "      \"condition\": {\n"
+                + "        \"type\": \"isNull\",\n"
+                + "        \"expr\": { \"type\": \"col\", \"name\": \"email\" }\n"
+                + "      }\n"
+                + "    }\n"
+                + "  ]\n"
+                + "}";
+
+        String expectedStep = "  .filter((F.col(\"email\")).isNull())\n";
+        String expected = buildFullScript(expectedStep);
+        String actual = PySparkChainGenerator.generate(json);
+
+        printTestInfo("testFilterWithIsNull", json, actual);
+        assertEquals(expected, actual);
+    }
+
+    @Test
+    @DisplayName("Filter: isNotNull 테스트")
+    void testFilterWithIsNotNull() throws Exception {
+        String json = "{\n"
+                + "  \"input\": \"df\",\n"
+                + "  \"steps\": [\n"
+                + "    {\n"
+                + "      \"step\": \"where\",\n"
+                + "      \"condition\": {\n"
+                + "        \"type\": \"isNotNull\",\n"
+                + "        \"expr\": { \"type\": \"col\", \"name\": \"last_login\" }\n"
+                + "      }\n"
+                + "    }\n"
+                + "  ]\n"
+                + "}";
+
+        String expectedStep = "  .filter((F.col(\"last_login\")).isNotNull())\n";
+        String expected = buildFullScript(expectedStep);
+        String actual = PySparkChainGenerator.generate(json);
+
+        printTestInfo("testFilterWithIsNotNull", json, actual);
+        assertEquals(expected, actual);
+    }
+
+    @Test
+    @DisplayName("Filter: isin 테스트")
+    void testFilterWithIsin() throws Exception {
+        String json = "{\n"
+                + "  \"input\": \"df\",\n"
+                + "  \"steps\": [\n"
+                + "    {\n"
+                + "      \"step\": \"filter\",\n"
+                + "      \"condition\": {\n"
+                + "        \"type\": \"isin\",\n"
+                + "        \"expr\": { \"type\": \"col\", \"name\": \"country\" },\n"
+                + "        \"values\": [\n"
+                + "          { \"type\": \"lit\", \"value\": \"USA\" },\n"
+                + "          { \"type\": \"lit\", \"value\": \"CAN\" },\n"
+                + "          { \"type\": \"lit\", \"value\": \"MEX\" }\n"
+                + "        ]\n"
+                + "      }\n"
+                + "    }\n"
+                + "  ]\n"
+                + "}";
+
+        String expectedStep = "  .filter((F.col(\"country\")).isin(F.lit(\"USA\"), F.lit(\"CAN\"), F.lit(\"MEX\")))\n";
+        String expected = buildFullScript(expectedStep);
+        String actual = PySparkChainGenerator.generate(json);
+
+        printTestInfo("testFilterWithIsin", json, actual);
+        assertEquals(expected, actual);
+    }
+
+    @Test
+    @DisplayName("Filter: NOT isin 테스트")
+    void testFilterWithNotIsin() throws Exception {
+        String json = "{\n"
+                + "  \"input\": \"df\",\n"
+                + "  \"steps\": [\n"
+                + "    {\n"
+                + "      \"step\": \"filter\",\n"
+                + "      \"condition\": {\n"
+                + "        \"type\": \"isin\",\n"
+                + "        \"not\": true,\n"
+                + "        \"expr\": { \"type\": \"col\", \"name\": \"category\" },\n"
+                + "        \"values\": [\n"
+                + "          { \"type\": \"lit\", \"value\": \"A\" },\n"
+                + "          { \"type\": \"lit\", \"value\": \"B\" }\n"
+                + "        ]\n"
+                + "      }\n"
+                + "    }\n"
+                + "  ]\n"
+                + "}";
+
+        String expectedStep = "  .filter(~((F.col(\"category\")).isin(F.lit(\"A\"), F.lit(\"B\"))))\n";
+        String expected = buildFullScript(expectedStep);
+        String actual = PySparkChainGenerator.generate(json);
+
+        printTestInfo("testFilterWithNotIsin", json, actual);
+        assertEquals(expected, actual);
+    }
+
+    @Test
+    @DisplayName("Filter: like 테스트")
+    void testFilterWithLike() throws Exception {
+        String json = "{\n"
+                + "  \"input\": \"df\",\n"
+                + "  \"steps\": [\n"
+                + "    {\n"
+                + "      \"step\": \"filter\",\n"
+                + "      \"condition\": {\n"
+                + "        \"type\": \"like\",\n"
+                + "        \"expr\": { \"type\": \"col\", \"name\": \"name\" },\n"
+                + "        \"pattern\": \"J%\"\n"
+                + "      }\n"
+                + "    }\n"
+                + "  ]\n"
+                + "}";
+
+        String expectedStep = "  .filter((F.col(\"name\")).like(\"J%\"))\n";
+        String expected = buildFullScript(expectedStep);
+        String actual = PySparkChainGenerator.generate(json);
+
+        printTestInfo("testFilterWithLike", json, actual);
+        assertEquals(expected, actual);
+    }
+
+    @Test
+    @DisplayName("Filter: NOT like 테스트")
+    void testFilterWithNotLike() throws Exception {
+        String json = "{\n"
+                + "  \"input\": \"df\",\n"
+                + "  \"steps\": [\n"
+                + "    {\n"
+                + "      \"step\": \"filter\",\n"
+                + "      \"condition\": {\n"
+                + "        \"type\": \"like\",\n"
+                + "        \"not\": true,\n"
+                + "        \"expr\": { \"type\": \"col\", \"name\": \"product_code\" },\n"
+                + "        \"pattern\": \"ERR-%\"\n"
+                + "      }\n"
+                + "    }\n"
+                + "  ]\n"
+                + "}";
+
+        String expectedStep = "  .filter(~((F.col(\"product_code\")).like(\"ERR-%\")))\n";
+        String expected = buildFullScript(expectedStep);
+        String actual = PySparkChainGenerator.generate(json);
+
+        printTestInfo("testFilterWithNotLike", json, actual);
+        assertEquals(expected, actual);
+    }
+
+    @Test
+    @DisplayName("Filter: like에서 리터럴 '%' 문자 검색")
+    void testFilterWithLikeLiteralPercent() throws Exception {
+        String json = "{\n"
+                + "  \"input\": \"df\",\n"
+                + "  \"steps\": [\n"
+                + "    {\n"
+                + "      \"step\": \"filter\",\n"
+                + "      \"condition\": {\n"
+                + "        \"type\": \"like\",\n"
+                + "        \"expr\": { \"type\": \"col\", \"name\": \"discount_rate\" },\n"
+                + "        \"pattern\": \"10\\\\%\"\n" // JSON에서 \\% 로 표현
+                + "      }\n"
+                + "    }\n"
+                + "  ]\n"
+                + "}";
+
+        // 생성될 Python 코드에서는 .like("10\\%") 형태가 되어야 합니다.
+        String expectedStep = "  .filter((F.col(\"discount_rate\")).like(\"10\\\\%\"))\n";
+        String expected = buildFullScript(expectedStep);
+        String actual = PySparkChainGenerator.generate(json);
+
+        printTestInfo("testFilterWithLikeLiteralPercent", json, actual);
+        assertEquals(expected, actual);
+    }
+
+    @Test
+    @DisplayName("Filter: like에서 리터럴 '_' 문자 검색")
+    void testFilterWithLikeLiteralUnderscore() throws Exception {
+        String json = "{\n"
+                + "  \"input\": \"df\",\n"
+                + "  \"steps\": [\n"
+                + "    {\n"
+                + "      \"step\": \"filter\",\n"
+                + "      \"condition\": {\n"
+                + "        \"type\": \"like\",\n"
+                + "        \"expr\": { \"type\": \"col\", \"name\": \"file_name\" },\n"
+                + "        \"pattern\": \"%\\\\_backup%\"\n" // JSON에서 %\\_backup% 로 표현
+                + "      }\n"
+                + "    }\n"
+                + "  ]\n"
+                + "}";
+
+        // 생성될 Python 코드에서는 .like("%\\_backup%") 형태가 되어야 합니다.
+        String expectedStep = "  .filter((F.col(\"file_name\")).like(\"%\\\\_backup%\"))\n";
+        String expected = buildFullScript(expectedStep);
+        String actual = PySparkChainGenerator.generate(json);
+
+        printTestInfo("testFilterWithLikeLiteralUnderscore", json, actual);
+        assertEquals(expected, actual);
+    }
+
 
 }

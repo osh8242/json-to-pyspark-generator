@@ -34,6 +34,14 @@ public class ExpressionBuilder {
                 return buildCase(e);
             case "between":
                 return buildBetween(e);
+            case "isin":
+                return buildIsin(e);
+            case "like":
+                return buildLike(e);
+            case "isNull":
+                return buildIsNull(e);
+            case "isNotNull":
+                return buildIsNotNull(e);
             default:
                 return "None";
         }
@@ -147,4 +155,57 @@ public class ExpressionBuilder {
             return betweenExpr;
         }
     }
+
+    /**
+     * 'isin' 표현식을 생성합니다.
+     * JSON 예시: { "type": "isin", "expr": {...}, "values": [{...}, {...}] }
+     */
+    private String buildIsin(JsonNode e) {
+        String exprPart = buildExpr(e.get("expr"));
+        ArrayNode values = (ArrayNode) e.get("values");
+        List<String> valueParts = new ArrayList<>();
+        if (values != null) {
+            for (JsonNode val : values) {
+                valueParts.add(buildExpr(val));
+            }
+        }
+
+        String isinExpr = "(" + exprPart + ").isin(" + String.join(", ", valueParts) + ")";
+
+        boolean neg = e.has("not") && e.get("not").asBoolean(false);
+        return neg ? "~(" + isinExpr + ")" : isinExpr;
+    }
+
+    /**
+     * 'like' 표현식을 생성합니다. (rlike 등도 동일하게 사용 가능)
+     * JSON 예시: { "type": "like", "expr": {...}, "pattern": "%test%" }
+     */
+    private String buildLike(JsonNode e) {
+        String exprPart = buildExpr(e.get("expr"));
+        String pattern = StringUtil.getText(e, "pattern", "");
+
+        String likeExpr = "(" + exprPart + ").like(" + StringUtil.pyString(pattern) + ")";
+
+        boolean neg = e.has("not") && e.get("not").asBoolean(false);
+        return neg ? "~(" + likeExpr + ")" : likeExpr;
+    }
+
+    /**
+     * 'isNull' 표현식을 생성합니다.
+     * JSON 예시: { "type": "isNull", "expr": {...} }
+     */
+    private String buildIsNull(JsonNode e) {
+        String exprPart = buildExpr(e.get("expr"));
+        return "(" + exprPart + ").isNull()";
+    }
+
+    /**
+     * 'isNotNull' 표현식을 생성합니다.
+     * JSON 예시: { "type": "isNotNull", "expr": {...} }
+     */
+    private String buildIsNotNull(JsonNode e) {
+        String exprPart = buildExpr(e.get("expr"));
+        return "(" + exprPart + ").isNotNull()";
+    }
+
 }
