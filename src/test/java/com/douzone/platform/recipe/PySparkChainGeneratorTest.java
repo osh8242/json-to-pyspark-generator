@@ -50,7 +50,7 @@ public class PySparkChainGeneratorTest {
         System.out.println("json = " + json);
         System.out.println();
         String out = PySparkChainGenerator.generate(json);
-        System.out.println("out = " + out);
+        System.out.println("result_df = " + out);
 
         // header 확인
         assertTrue(out.contains("from pyspark.sql import functions as F"), "헤더가 포함되어야 함");
@@ -103,7 +103,7 @@ public class PySparkChainGeneratorTest {
         System.out.println("json = " + json);
         System.out.println();
         String out = PySparkChainGenerator.generate(json);
-        System.out.println("out = " + out);
+        System.out.println("result_df = " + out);
 
         // withColumn 확인
         assertTrue(out.contains(".withColumn(\"age_plus_one\""), "withColumn 이름이 포함되어야 함");
@@ -173,7 +173,7 @@ public class PySparkChainGeneratorTest {
         System.out.println();
 
         String out = PySparkChainGenerator.generate(json);
-        System.out.println("out = " + out);
+        System.out.println("result_df = " + out);
 
     }
 
@@ -211,7 +211,7 @@ public class PySparkChainGeneratorTest {
 
         // 생성된 PySpark 코드 출력
         String out = PySparkChainGenerator.generate(json);
-        System.out.println("out = " + out);
+        System.out.println("result_df = " + out);
 
         // 핵심 포함 여부 검증
         assertTrue(out.contains("spark.table('patientinfo')") || out.contains("spark.table(\"patientinfo\")"),
@@ -270,7 +270,7 @@ public class PySparkChainGeneratorTest {
         assertTrue(out.contains("F.avg(") && out.contains("F.col(\"age\")"), "avg(age) 표현이 포함되어야 함");
         assertTrue(out.contains(".alias(\"avg_age\")"), "avg alias 'avg_age' 포함되어야 함");
         Assertions.assertThat(FormatUtil.normalizeWhitespace(out)).isEqualTo(
-                "from pyspark.sql import functions as F out = ( spark.table('patientinfo') .groupBy(F.col(\"disease_code\")) .agg( F.count(F.lit(\"*\")).alias(\"cnt\"), F.avg(F.col(\"age\")).alias(\"avg_age\") ) )"
+                "from pyspark.sql import functions as F result_df = ( spark.table('patientinfo') .groupBy(F.col(\"disease_code\")) .agg( F.count(F.lit(\"*\")).alias(\"cnt\"), F.avg(F.col(\"age\")).alias(\"avg_age\") ) )"
         );
     }
 
@@ -298,7 +298,7 @@ public class PySparkChainGeneratorTest {
 
         // PySpark 코드 생성 및 출력
         String out = PySparkChainGenerator.generate(json);
-        System.out.println("out = " + out);
+        System.out.println("result_df = " + out);
 
         // 포함 검증
         assertTrue(out.contains("spark.table('patientinfo')") || out.contains("spark.table(\"patientinfo\")"),
@@ -338,7 +338,7 @@ public class PySparkChainGeneratorTest {
 
         // PySpark 코드 생성 및 출력
         String out = PySparkChainGenerator.generate(json);
-        System.out.println("out = " + out);
+        System.out.println("result_df = " + out);
 
         // 포함 검증
         assertTrue(out.contains("spark.table('patientinfo')") || out.contains("spark.table(\"patientinfo\")"),
@@ -419,7 +419,7 @@ public class PySparkChainGeneratorTest {
 
         // PySpark 코드 생성 및 출력
         String out = PySparkChainGenerator.generate(json);
-        System.out.println("out = " + out);
+        System.out.println("result_df = " + out);
 
         // 포함 검증
         assertTrue(out.contains("spark.table('patientinfo')") || out.contains("spark.table(\"patientinfo\")"),

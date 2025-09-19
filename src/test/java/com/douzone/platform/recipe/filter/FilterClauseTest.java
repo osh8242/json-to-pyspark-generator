@@ -398,7 +398,7 @@ public class FilterClauseTest {
     }
 
     @Test
-    @DisplayName("Filter: like에서 리터럴 '%' 문자 검색")
+    @DisplayName("Filter: like에서 리터럴 '10%' 문자열 검색")
     void testFilterWithLikeLiteralPercent() throws Exception {
         String json = "{\n"
                 + "  \"input\": \"df\",\n"
@@ -414,7 +414,6 @@ public class FilterClauseTest {
                 + "  ]\n"
                 + "}";
 
-        // 생성될 Python 코드에서는 .like("10\\%") 형태가 되어야 합니다.
         String expectedStep = "  .filter((F.col(\"discount_rate\")).like(\"10\\\\%\"))\n";
         String expected = buildFullScript(expectedStep);
         String actual = PySparkChainGenerator.generate(json);

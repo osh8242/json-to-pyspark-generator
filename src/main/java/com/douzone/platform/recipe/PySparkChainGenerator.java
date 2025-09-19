@@ -35,11 +35,12 @@ public class PySparkChainGenerator {
 
     public String generatePySparkCode(JsonNode root) throws Exception {
         String inputDf = StringUtil.getText(root, "input", "df");
+        String outDf = StringUtil.getText(root, "output", "result_df");
         ArrayNode steps = (ArrayNode) root.get("steps");
 
         StringBuilder sb = new StringBuilder();
         sb.append("from pyspark.sql import functions as F\n\n");
-        sb.append("out = (\n");
+        sb.append(outDf).append(" = (\n");
         sb.append("  ").append(inputDf).append("\n");
         sb.append(buildChainFromSteps(steps));
         sb.append(")\n");

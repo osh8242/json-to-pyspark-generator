@@ -15,7 +15,7 @@ public class TestUtil {
      */
     public static String buildFullScript(String stepCode) {
         return "from pyspark.sql import functions as F\n\n" +
-                "out = (\n" +
+                "result_df = (\n" +
                 "  df\n" +
                 stepCode +
                 ")\n";
