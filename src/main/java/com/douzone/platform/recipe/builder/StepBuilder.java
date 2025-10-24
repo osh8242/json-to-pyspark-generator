@@ -211,4 +211,23 @@ public class StepBuilder {
         String dst = StringUtil.getText(node, "dst", null);
         return "  .withColumnRenamed(" + StringUtil.pyString(src) + ", " + StringUtil.pyString(dst) + ")\n";
     }
+
+    public String buildShow(JsonNode node) {
+        int n = node.has("n") ? node.get("n").asInt(20) : 20;  // 기본 20행
+        boolean truncate = !node.has("truncate") || node.get("truncate").asBoolean(true);  // 기본 true
+        boolean vertical = node.has("vertical") && node.get("vertical").asBoolean(false);  // 기본 false
+
+        StringBuilder args = new StringBuilder();
+        args.append(n);
+        if (!truncate) {
+            args.append(", truncate=False");
+        }
+        if (vertical) {
+            if (args.length() > 1) args.append(", ");
+            args.append("vertical=True");
+        }
+
+        return "  .show(" + args.toString() + ")\n";
+    }
+
 }
