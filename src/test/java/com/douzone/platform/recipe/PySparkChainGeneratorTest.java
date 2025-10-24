@@ -1,9 +1,15 @@
 package com.douzone.platform.recipe;
 
+import com.douzone.platform.recipe.util.TestUtil;
 import com.douzone.platform.util.FormatUtil;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -436,7 +442,54 @@ public class PySparkChainGeneratorTest {
         assertTrue(out.contains("F.lit(60)") || out.contains("F.lit(60.0)"), "두번째 분기 조건의 리터럴 60이 포함되어야 함");
     }
 
+    @Test
+    @DisplayName("테이블 추출: 단순 input + join")
+    void testSimpleTableExtraction() throws Exception {
+        String json = "{\n"
+                + "  \"input\": \"main_df\",\n"
+                + "  \"steps\": [\n"
+                + "    { \"step\": \"join\", \"right\": \"orders_df\" }\n"
+                + "  ]\n"
+                + "}";
 
+        Set<String> expected = new HashSet<>(Arrays.asList("main_df", "orders_df"));
+        Set<String> actual = PySparkChainGenerator.extractTables(json);
+
+        TestUtil.printTestInfo("testSimpleTableExtraction", json, actual.toString());
+        assertEquals(expected, actual);
+    }
+
+    @Test
+    @DisplayName("테이블 추출: 재귀적 join (중첩 sub-JSON)")
+    void testRecursiveTableExtraction() throws Exception {
+        String json = "{\n"
+                + "  \"input\": \"users_df\",\n"
+                + "  \"steps\": [\n"
+                + "    { \"step\": \"join\", \"right\": { \"input\": \"profiles_df\", \"steps\": [ { \"step\": \"join\", \"right\": \"addresses_df\" } ] } }\n"
+                + "  ]\n"
+                + "}";
+
+        Set<String> expected = new HashSet<>(Arrays.asList("users_df", "profiles_df", "addresses_df"));
+        Set<String> actual = PySparkChainGenerator.extractTables(json);
+
+        TestUtil.printTestInfo("testRecursiveTableExtraction", json, actual.toString());
+        assertEquals(expected, actual);
+    }
+
+    @Test
+    @DisplayName("테이블 추출: 기본 input만 (join 없음)")
+    void testInputOnlyExtraction() throws Exception {
+        String json = "{\n"
+                + "  \"input\": \"df\",\n"
+                + "  \"steps\": [ { \"step\": \"filter\", \"condition\": { \"type\": \"op\", \"op\": \">\", \"left\": { \"type\": \"col\", \"name\": \"age\" }, \"right\": { \"type\": \"lit\", \"value\": 18 } } } ]\n"
+                + "}";
+
+        Set<String> expected = new HashSet<>(Collections.singletonList("df"));
+        Set<String> actual = PySparkChainGenerator.extractTables(json);
+
+        TestUtil.printTestInfo("testInputOnlyExtraction", json, actual.toString());
+        assertEquals(expected, actual);
+    }
 
 }
 

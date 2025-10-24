@@ -6,6 +6,9 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 
+import java.util.HashSet;
+import java.util.Set;
+
 public class PySparkChainGenerator {
 
     private final StepBuilder stepBuilder;
@@ -112,12 +115,70 @@ public class PySparkChainGenerator {
                 case "withColumnRenamed":
                     sb.append(stepBuilder.buildWithColumnRenamed(step));
                     break;
+                case "show":
+                    sb.append(stepBuilder.buildShow(step));
+                    break;
                 default:
                     break;
             }
         }
 
         return sb.toString();
+    }
+
+    /**
+     * JSON 파라미터에서 테이블 목록을 추출합니다.
+     * - input 필드와 join step의 right 테이블(문자열 또는 sub-JSON input)을 재귀적으로 수집.
+     * - 중복 제거된 Set으로 반환.
+     *
+     * @param json JSON 문자열
+     * @return 테이블 이름들의 Set (예: {"df", "orders_df", "users_df"})
+     * @throws Exception JSON 파싱 또는 처리 오류 시
+     */
+    public static Set<String> extractTables(String json) throws Exception {
+        PySparkChainGenerator generator = new PySparkChainGenerator();
+        JsonNode root = generator.om.readTree(json);
+        Set<String> tables = new HashSet<>();
+        generator.collectTables(root, tables);
+        return tables;
+    }
+
+    /**
+     * 인스턴스 메서드로 JSON 노드에서 테이블을 재귀적으로 수집합니다.
+     * - 외부 호출은 static extractTables 사용 권장.
+     */
+    private void collectTables(JsonNode node, Set<String> tables) {
+        if (node == null || !node.isObject()) {
+            return;
+        }
+
+        // input 필드 추가 (기본 "df")
+        String input = StringUtil.getText(node, "input", "df");
+        tables.add(input);
+
+        // steps 배열 검사
+        ArrayNode steps = (ArrayNode) node.get("steps");
+        if (steps != null) {
+            for (JsonNode step : steps) {
+                String opName = StringUtil.getText(step, "step", null);
+                if ("join".equals(opName)) {
+                    // join step: right 처리
+                    JsonNode rightNode = step.get("right");
+                    if (rightNode != null && !rightNode.isNull()) {
+                        if (rightNode.isTextual()) {
+                            // right가 문자열: 테이블 이름 추가
+                            tables.add(rightNode.asText());
+                        } else if (rightNode.isObject()) {
+                            // right가 객체: input 추가 + 재귀 steps 검사
+                            String subInput = StringUtil.getText(rightNode, "input", "df");
+                            tables.add(subInput);
+                            collectTables(rightNode, tables);  // sub-JSON 재귀
+                        }
+                    }
+                }
+                // 다른 step은 테이블 생성 안 하므로 무시
+            }
+        }
     }
 
 }
