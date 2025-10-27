@@ -13,12 +13,25 @@ public class TestUtil {
      * @param stepCode 테스트할 step의 PySpark 코드 조각
      * @return 완전한 PySpark 스크립트 문자열
      */
-    public static String buildFullScript(String stepCode) {
-        return "from pyspark.sql import functions as F\n\n" +
-                "result_df = (\n" +
-                "  df\n" +
-                stepCode +
-                ")\n";
+    public static String buildFullScript(String stepCode, String... actionLines) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("from pyspark.sql import functions as F\n\n");
+        sb.append("result_df = (\n");
+        sb.append("  df\n");
+        if (stepCode != null) {
+            sb.append(stepCode);
+        }
+        sb.append(")\n");
+
+        if (actionLines != null) {
+            for (String action : actionLines) {
+                if (action != null) {
+                    sb.append(action);
+                }
+            }
+        }
+
+        return sb.toString();
     }
 
     /**

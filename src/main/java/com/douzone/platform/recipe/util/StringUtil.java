@@ -22,6 +22,10 @@ public class StringUtil {
         return "\"" + esc + "\"";
     }
 
+    public static String pyBool(boolean value) {
+        return value ? "True" : "False";
+    }
+
     public static String appendAliasIfExists(JsonNode e, String str) {
         if (e != null && e.has("alias")) {
             str += ".alias(" + pyString(e.get("alias").asText()) + ")";

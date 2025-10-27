@@ -194,9 +194,26 @@ public class StepBuilder {
 
     public String buildSample(JsonNode node) {
         boolean withReplacement = node.has("withReplacement") && node.get("withReplacement").asBoolean(false);
-        double fraction = node.get("fraction").asDouble();
-        String seed = node.has("seed") ? node.get("seed").asText() : null;
-        return "  .sample(" + withReplacement + ", " + fraction + (seed != null ? ", " + seed : "") + ")\n";
+        String fraction = node.get("fraction").asText();
+        JsonNode seedNode = node.get("seed");
+
+        StringBuilder sb = new StringBuilder("  .sample(");
+        sb.append(StringUtil.pyBool(withReplacement)).append(", ").append(fraction);
+
+        if (seedNode != null && !seedNode.isNull()) {
+            String seedValue;
+            if (seedNode.isNumber()) {
+                seedValue = seedNode.toString();
+            } else if (seedNode.isTextual()) {
+                seedValue = StringUtil.pyString(seedNode.asText());
+            } else {
+                seedValue = seedNode.toString();
+            }
+            sb.append(", ").append(seedValue);
+        }
+
+        sb.append(")\n");
+        return sb.toString();
     }
 
     public String buildDrop(JsonNode node) {
@@ -212,7 +229,7 @@ public class StepBuilder {
         return "  .withColumnRenamed(" + StringUtil.pyString(src) + ", " + StringUtil.pyString(dst) + ")\n";
     }
 
-    public String buildShow(JsonNode node) {
+    public String buildShowAction(JsonNode node, String dfName) {
         int n = node.has("n") ? node.get("n").asInt(20) : 20;  // 기본 20행
         boolean truncate = !node.has("truncate") || node.get("truncate").asBoolean(true);  // 기본 true
         boolean vertical = node.has("vertical") && node.get("vertical").asBoolean(false);  // 기본 false
@@ -223,11 +240,10 @@ public class StepBuilder {
             args.append(", truncate=False");
         }
         if (vertical) {
-            if (args.length() > 1) args.append(", ");
-            args.append("vertical=True");
+            args.append(", vertical=True");
         }
 
-        return "  .show(" + args.toString() + ")\n";
+        return dfName + ".show(" + args + ")\n";
     }
 
 }
