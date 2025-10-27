@@ -13,6 +13,24 @@ import java.util.Set;
 
 public class PySparkChainGenerator {
 
+    public static class ChainBuildResult {
+        private final String baseExpression;
+        private final String chain;
+
+        public ChainBuildResult(String baseExpression, String chain) {
+            this.baseExpression = baseExpression;
+            this.chain = chain;
+        }
+
+        public String getBaseExpression() {
+            return baseExpression;
+        }
+
+        public String getChain() {
+            return chain;
+        }
+    }
+
     private final StepBuilder stepBuilder;
     private final ObjectMapper om = new ObjectMapper();
 
@@ -57,11 +75,13 @@ public class PySparkChainGenerator {
             transformSteps = filtered;
         }
 
+        ChainBuildResult chainResult = buildChain(inputDf, transformSteps);
+
         StringBuilder sb = new StringBuilder();
         sb.append("from pyspark.sql import functions as F\n\n");
         sb.append(outDf).append(" = (\n");
-        sb.append("  ").append(inputDf).append("\n");
-        sb.append(buildChainFromSteps(transformSteps));
+        sb.append(formatBaseExpression(chainResult.getBaseExpression()));
+        sb.append(chainResult.getChain());
         sb.append(")\n");
 
         for (JsonNode showStep : showSteps) {
@@ -74,17 +94,25 @@ public class PySparkChainGenerator {
      * steps 배열을 받아 체인 메서드 문자열을 생성하는 재귀적 핵심 로직입니다.
      * 이 메서드는 순수하게 메서드 체인(.filter(...).join(...)) 부분만 생성합니다.
      */
-    public String buildChainFromSteps(ArrayNode steps) throws Exception {
-        if (steps == null) {
-            return "";
-        }
-
+    public ChainBuildResult buildChain(String inputDf, ArrayNode steps) throws Exception {
+        String baseExpression = inputDf;
         StringBuilder sb = new StringBuilder();
+
+        if (steps == null) {
+            return new ChainBuildResult(baseExpression, "");
+        }
 
         for (JsonNode step : steps) {
             String opName = StringUtil.getText(step, "step", null);
             if (opName == null) continue;
+
             switch (opName) {
+                case "load":
+                    String loadExpr = stepBuilder.buildLoad(step);
+                    if (loadExpr != null && !loadExpr.isEmpty()) {
+                        baseExpression = loadExpr;
+                    }
+                    break;
                 case "select":
                     sb.append(stepBuilder.buildSelect(step));
                     break;
@@ -140,7 +168,7 @@ public class PySparkChainGenerator {
             }
         }
 
-        return sb.toString();
+        return new ChainBuildResult(baseExpression, sb.toString());
     }
 
     /**
@@ -196,6 +224,22 @@ public class PySparkChainGenerator {
                 // 다른 step은 테이블 생성 안 하므로 무시
             }
         }
+    }
+
+    private String formatBaseExpression(String baseExpression) {
+        if (baseExpression == null) {
+            baseExpression = "df";
+        }
+        String[] lines = baseExpression.split("\\r?\\n", -1);
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < lines.length; i++) {
+            String line = lines[i];
+            if (i == lines.length - 1 && line.isEmpty()) {
+                continue;
+            }
+            sb.append("  ").append(line).append("\n");
+        }
+        return sb.toString();
     }
 
 }
