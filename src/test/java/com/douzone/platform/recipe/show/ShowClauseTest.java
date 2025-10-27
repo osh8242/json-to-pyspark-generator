@@ -27,8 +27,7 @@ public class ShowClauseTest {
                 + "  ]\n"
                 + "}";
 
-        String expectedStep = "  .show(20)\n";
-        String expected = buildFullScript(expectedStep);
+        String expected = buildFullScript(null, "result_df.show(20)\n");
         String actual = PySparkChainGenerator.generate(json);
 
         printTestInfo("testBasicShow", json, actual);
@@ -45,11 +44,44 @@ public class ShowClauseTest {
                 + "  ]\n"
                 + "}";
 
-        String expectedStep = "  .show(5, truncate=False, vertical=True)\n";
-        String expected = buildFullScript(expectedStep);
+        String expected = buildFullScript(null, "result_df.show(5, truncate=False, vertical=True)\n");
         String actual = PySparkChainGenerator.generate(json);
 
         printTestInfo("testShowWithOptions", json, actual);
+        assertEquals(expected, actual);
+    }
+
+    @Test
+    @DisplayName("Show: truncate 길이 지정")
+    void testShowWithTruncateLength() throws Exception {
+        String json = "{\n"
+                + "  \"input\": \"df\",\n"
+                + "  \"steps\": [\n"
+                + "    { \"step\": \"show\", \"truncate\": 50 }\n"
+                + "  ]\n"
+                + "}";
+
+        String expected = buildFullScript(null, "result_df.show(20, truncate=50)\n");
+        String actual = PySparkChainGenerator.generate(json);
+
+        printTestInfo("testShowWithTruncateLength", json, actual);
+        assertEquals(expected, actual);
+    }
+
+    @Test
+    @DisplayName("Show: truncate=true 옵션은 생략")
+    void testShowWithTruncateTrueIsOmitted() throws Exception {
+        String json = "{\n"
+                + "  \"input\": \"df\",\n"
+                + "  \"steps\": [\n"
+                + "    { \"step\": \"show\", \"n\": 15, \"truncate\": true }\n"
+                + "  ]\n"
+                + "}";
+
+        String expected = buildFullScript(null, "result_df.show(15)\n");
+        String actual = PySparkChainGenerator.generate(json);
+
+        printTestInfo("testShowWithTruncateTrueIsOmitted", json, actual);
         assertEquals(expected, actual);
     }
 
@@ -70,12 +102,33 @@ public class ShowClauseTest {
                 + "  .groupBy(F.col(\"department\"))\n"
                 + "  .agg(\n"
                 + "      F.avg(F.col(\"salary\")).alias(\"avg_salary\")\n"
-                + "  )\n"
-                + "  .show(10)\n";
-        String expected = buildFullScript(expectedSteps);
+                + "  )\n";
+        String expected = buildFullScript(expectedSteps, "result_df.show(10)\n");
         String actual = PySparkChainGenerator.generate(json);
 
         printTestInfo("testShowInMultiStepPipeline", json, actual);
+        assertEquals(expected, actual);
+    }
+
+    @Test
+    @DisplayName("Show: 다중 show 스텝 순서 보존")
+    void testMultipleShowStepsPreserveOrder() throws Exception {
+        String json = "{\n"
+                + "  \"input\": \"df\",\n"
+                + "  \"steps\": [\n"
+                + "    { \"step\": \"show\", \"n\": 3 },\n"
+                + "    { \"step\": \"filter\", \"condition\": { \"type\": \"op\", \"op\": \"==\", \"left\": { \"type\": \"col\", \"name\": \"status\" }, \"right\": { \"type\": \"lit\", \"value\": \"ACTIVE\" } } },\n"
+                + "    { \"step\": \"show\", \"n\": 8, \"truncate\": false }\n"
+                + "  ]\n"
+                + "}";
+
+        String expectedSteps = "  .filter((F.col(\"status\") == F.lit(\"ACTIVE\")))\n";
+        String expected = buildFullScript(expectedSteps,
+                "result_df.show(3)\n",
+                "result_df.show(8, truncate=False)\n");
+        String actual = PySparkChainGenerator.generate(json);
+
+        printTestInfo("testMultipleShowStepsPreserveOrder", json, actual);
         assertEquals(expected, actual);
     }
 }

@@ -22,10 +22,29 @@ public class StringUtil {
         return "\"" + esc + "\"";
     }
 
+    public static String pyBool(boolean value) {
+        return value ? "True" : "False";
+    }
+
     public static String appendAliasIfExists(JsonNode e, String str) {
-        if (e != null && e.has("alias")) {
-            str += ".alias(" + pyString(e.get("alias").asText()) + ")";
+        if (e == null) {
+            return str;
         }
+
+        JsonNode aliasNode = null;
+        if (e.hasNonNull("alias")) {
+            aliasNode = e.get("alias");
+        } else if (e.hasNonNull("as")) {
+            aliasNode = e.get("as");
+        }
+
+        if (aliasNode != null) {
+            String alias = aliasNode.asText();
+            if (!alias.isEmpty()) {
+                str += ".alias(" + pyString(alias) + ")";
+            }
+        }
+
         return str;
     }
 }

@@ -68,6 +68,31 @@ public class SelectClauseTest {
     }
 
     @Test
+    @DisplayName("Select with As Key: 'as' 키를 사용한 별칭 처리")
+    void testSelectWithAsKey() throws Exception {
+        String json = "{\n"
+                + "  \"input\": \"df\",\n"
+                + "  \"steps\": [\n"
+                + "    {\n"
+                + "      \"step\": \"select\",\n"
+                + "      \"columns\": [\n"
+                + "        { \"expr\": { \"type\": \"col\", \"name\": \"user_id\" }, \"as\": \"id\" },\n"
+                + "        { \"expr\": { \"type\": \"col\", \"name\": \"age\" } }\n"
+                + "      ]\n"
+                + "    }\n"
+                + "  ]\n"
+                + "}";
+
+        String expectedStep = "  .select(F.col(\"user_id\").alias(\"id\"), F.col(\"age\"))\n";
+        String expected = buildFullScript(expectedStep);
+        String actual = PySparkChainGenerator.generate(json);
+
+        printTestInfo("testSelectWithAsKey", json, actual);
+
+        assertEquals(expected, actual);
+    }
+
+    @Test
     @DisplayName("Select with Function: 함수(F.upper)를 사용하고 별칭 부여")
     void testSelectWithFunctionAndAlias() throws Exception {
         String json = "{\n"
