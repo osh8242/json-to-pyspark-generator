@@ -1,7 +1,7 @@
 package com.douzone.platform.util;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.JavaType;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.io.BufferedReader;
@@ -47,9 +47,14 @@ public class FormatUtil {
      * @return 복사된 객체
      */
     public static <T> T deepCopy(T object) {
+        if (object == null) {
+            return null;
+        }
+
         try {
-            return OBJECT_MAPPER.readValue(getJson(object), new TypeReference<T>() {
-            });
+            ObjectMapper mapper = FormatUtil.getMapper();
+            JavaType javaType = mapper.getTypeFactory().constructType(object.getClass());
+            return mapper.readValue(getJson(object), javaType);
         } catch (JsonProcessingException e) {
             throw new RuntimeException("깊은 복사 중 오류 발생", e);
         }
@@ -298,24 +303,45 @@ public class FormatUtil {
      * @return 정규 표현식
      */
     public static String convertLikeExprToRegex(String likePattern, boolean ignoreCase) {
-        // 정규 표현식의 시작과 끝을 포함하여 변환된 패턴을 반환
-        String regex = likePattern;
-
-        // %를 .*로 변환
-        if (regex.startsWith("%") && regex.endsWith("%")) {
-            regex = regex.substring(1, regex.length() - 1);  // 양쪽의 %를 제거
-            regex = ".*" + regex + ".*"; // 양쪽에 .*을 추가
-        } else if (regex.startsWith("%")) {
-            regex = regex.substring(1);  // 앞의 %만 제거
-            regex = ".*" + regex + "$";  // 앞에 .* 추가
-        } else if (regex.endsWith("%")) {
-            regex = regex.substring(0, regex.length() - 1);  // 뒤의 %만 제거
-            regex = "^" + regex + ".*";  // 뒤에 .* 추가
+        if (likePattern == null) {
+            return null;
         }
 
-        if (ignoreCase) regex = "(?i)" + regex; // 대소문자 구분 안함
+        StringBuilder regex = new StringBuilder();
+        if (ignoreCase) {
+            regex.append("(?i)");
+        }
 
-        return regex;
+        regex.append('^');
+
+        StringBuilder literalBuffer = new StringBuilder();
+
+        for (int i = 0; i < likePattern.length(); i++) {
+            char ch = likePattern.charAt(i);
+
+            if (ch == '\\' && i + 1 < likePattern.length()) {
+                // SQL LIKE에서는 \\가 다음 문자를 이스케이프 처리합니다.
+                literalBuffer.append(likePattern.charAt(++i));
+                continue;
+            }
+
+            if (ch == '%' || ch == '_') {
+                if (literalBuffer.length() > 0) {
+                    regex.append(Pattern.quote(literalBuffer.toString()));
+                    literalBuffer.setLength(0);
+                }
+                regex.append(ch == '%' ? ".*" : ".");
+            } else {
+                literalBuffer.append(ch);
+            }
+        }
+
+        if (literalBuffer.length() > 0) {
+            regex.append(Pattern.quote(literalBuffer.toString()));
+        }
+
+        regex.append('$');
+        return regex.toString();
     }
 
     public static String convertLikeExprToRegex(String likePattern) {
