@@ -84,34 +84,91 @@ public class StepBuilder {
         String password = StringUtil.getText(node, "password", null);
         String driver = StringUtil.getText(node, "driver", null);
 
-        StringBuilder sb = new StringBuilder("spark.read.format(\"jdbc\")");
-        sb.append("\n  .option(\"url\", ").append(StringUtil.pyString(url)).append(")");
-        if (table != null) {
-            sb.append("\n  .option(\"dbtable\", ").append(StringUtil.pyString(table)).append(")");
+        List<String> predicates = new ArrayList<>();
+        JsonNode predicateNode = node.hasNonNull("predicate") ? node.get("predicate") : null;
+        if (predicateNode == null && node.hasNonNull("predicates")) {
+            predicateNode = node.get("predicates");
         }
+        if (predicateNode != null && !predicateNode.isNull()) {
+            if (predicateNode.isArray()) {
+                predicateNode.forEach(item -> predicates.add(item.asText()));
+            } else {
+                predicates.add(predicateNode.asText());
+            }
+        }
+
+        List<String> propertyEntries = new ArrayList<>();
         if (user != null) {
-            sb.append("\n  .option(\"user\", ").append(StringUtil.pyString(user)).append(")");
+            propertyEntries.add(StringUtil.pyString("user") + ": " + StringUtil.pyString(user));
         }
         if (password != null) {
-            sb.append("\n  .option(\"password\", ").append(StringUtil.pyString(password)).append(")");
+            propertyEntries.add(StringUtil.pyString("password") + ": " + StringUtil.pyString(password));
         }
         if (driver != null) {
-            sb.append("\n  .option(\"driver\", ").append(StringUtil.pyString(driver)).append(")");
+            propertyEntries.add(StringUtil.pyString("driver") + ": " + StringUtil.pyString(driver));
         }
 
         JsonNode optionsNode = node.get("options");
         if (optionsNode != null && optionsNode.isObject()) {
-            optionsNode.fieldNames().forEachRemaining(name -> {
+            List<String> optionNames = new ArrayList<>();
+            optionsNode.fieldNames().forEachRemaining(optionNames::add);
+            optionNames.sort(String::compareTo);
+            for (String name : optionNames) {
                 JsonNode value = optionsNode.get(name);
-                sb.append("\n  .option(")
-                        .append(StringUtil.pyString(name))
-                        .append(", ")
-                        .append(StringUtil.pyString(value.asText()))
-                        .append(")");
-            });
+                propertyEntries.add(StringUtil.pyString(name) + ": " + StringUtil.pyString(value.asText()));
+            }
         }
 
-        sb.append("\n  .load()");
+        List<String> parameters = new ArrayList<>();
+        parameters.add("    url=" + StringUtil.pyString(url));
+        if (table != null) {
+            parameters.add("    table=" + StringUtil.pyString(table));
+        }
+        if (!predicates.isEmpty()) {
+            parameters.add("    predicates=" + formatPredicates(predicates));
+        }
+        parameters.add(buildPropertiesParam(propertyEntries));
+
+        StringBuilder sb = new StringBuilder("spark.read.jdbc(\n");
+        sb.append(String.join(",\n", parameters));
+        sb.append("\n  )");
+        return sb.toString();
+    }
+
+    private String formatPredicates(List<String> predicates) {
+        if (predicates.isEmpty()) {
+            return "[]";
+        }
+        if (predicates.size() == 1) {
+            return "[" + StringUtil.pyString(predicates.get(0)) + "]";
+        }
+
+        StringBuilder sb = new StringBuilder("[\n");
+        for (int i = 0; i < predicates.size(); i++) {
+            sb.append("      ").append(StringUtil.pyString(predicates.get(i)));
+            if (i < predicates.size() - 1) {
+                sb.append(",\n");
+            } else {
+                sb.append("\n    ]");
+            }
+        }
+        return sb.toString();
+    }
+
+    private String buildPropertiesParam(List<String> propertyEntries) {
+        if (propertyEntries.isEmpty()) {
+            return "    properties={}";
+        }
+
+        StringBuilder sb = new StringBuilder("    properties={\n");
+        for (int i = 0; i < propertyEntries.size(); i++) {
+            sb.append("      ").append(propertyEntries.get(i));
+            if (i < propertyEntries.size() - 1) {
+                sb.append(",\n");
+            } else {
+                sb.append("\n    }");
+            }
+        }
         return sb.toString();
     }
 
