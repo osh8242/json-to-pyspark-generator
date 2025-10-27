@@ -24,6 +24,97 @@ public class StepBuilder {
         this.mainGenerator = mainGenerator;
     }
 
+    public String buildLoad(JsonNode node) {
+        if (node == null) {
+            return null;
+        }
+
+        String source = StringUtil.getText(node, "source", null);
+        if (source == null) {
+            return null;
+        }
+
+        switch (source.toLowerCase()) {
+            case "iceberg":
+                return buildIcebergLoad(node);
+            case "postgres":
+            case "postgresql":
+                return buildPostgresLoad(node);
+            default:
+                return null;
+        }
+    }
+
+    private String buildIcebergLoad(JsonNode node) {
+        String catalog = StringUtil.getText(node, "catalog", null);
+        String database = StringUtil.getText(node, "database", null);
+        String table = StringUtil.getText(node, "table", null);
+
+        if (table == null) {
+            return null;
+        }
+
+        StringBuilder identifier = new StringBuilder();
+        if (catalog != null && !catalog.isEmpty()) {
+            identifier.append(catalog).append('.');
+        }
+        if (database != null && !database.isEmpty()) {
+            identifier.append(database).append('.');
+        }
+        identifier.append(table);
+
+        return "spark.read.table(" + StringUtil.pyString(identifier.toString()) + ")";
+    }
+
+    private String buildPostgresLoad(JsonNode node) {
+        String url = StringUtil.getText(node, "url", null);
+        if (url == null || url.isEmpty()) {
+            String host = StringUtil.getText(node, "host", "localhost");
+            String port = StringUtil.getText(node, "port", "5432");
+            String database = StringUtil.getText(node, "database", null);
+            if (database != null && !database.isEmpty()) {
+                url = "jdbc:postgresql://" + host + ":" + port + "/" + database;
+            } else {
+                url = "jdbc:postgresql://" + host + ":" + port;
+            }
+        }
+
+        String table = StringUtil.getText(node, "table", null);
+        String user = StringUtil.getText(node, "user", null);
+        String password = StringUtil.getText(node, "password", null);
+        String driver = StringUtil.getText(node, "driver", null);
+
+        StringBuilder sb = new StringBuilder("spark.read.format(\"jdbc\")");
+        sb.append("\n  .option(\"url\", ").append(StringUtil.pyString(url)).append(")");
+        if (table != null) {
+            sb.append("\n  .option(\"dbtable\", ").append(StringUtil.pyString(table)).append(")");
+        }
+        if (user != null) {
+            sb.append("\n  .option(\"user\", ").append(StringUtil.pyString(user)).append(")");
+        }
+        if (password != null) {
+            sb.append("\n  .option(\"password\", ").append(StringUtil.pyString(password)).append(")");
+        }
+        if (driver != null) {
+            sb.append("\n  .option(\"driver\", ").append(StringUtil.pyString(driver)).append(")");
+        }
+
+        JsonNode optionsNode = node.get("options");
+        if (optionsNode != null && optionsNode.isObject()) {
+            optionsNode.fieldNames().forEachRemaining(name -> {
+                JsonNode value = optionsNode.get(name);
+                sb.append("\n  .option(")
+                        .append(StringUtil.pyString(name))
+                        .append(", ")
+                        .append(StringUtil.pyString(value.asText()))
+                        .append(")");
+            });
+        }
+
+        sb.append("\n  .load()");
+        return sb.toString();
+    }
+
     public String buildSelect(JsonNode node) {
         ArrayNode cols = (ArrayNode) node.get("columns");
         List<String> parts = new ArrayList<>();
@@ -106,10 +197,18 @@ public class StepBuilder {
         if (rightNode.isObject()) {
             String inputDf = StringUtil.getText(rightNode, "input", "df");
             ArrayNode steps = (ArrayNode) rightNode.get("steps");
-            String subChain = mainGenerator.buildChainFromSteps(steps);
+            PySparkChainGenerator.ChainBuildResult subResult = mainGenerator.buildChain(inputDf, steps);
+            String baseExpr = subResult.getBaseExpression();
+            String subChain = subResult.getChain();
 
-            // 생성된 서브 체인을 괄호로 감싸 하나의 표현식으로 만듭니다.
-            return "(\n    " + inputDf + "\n" + subChain.replaceAll("(?m)^ {2}", "    ") + "  )";
+            StringBuilder builder = new StringBuilder();
+            builder.append("(\n");
+            builder.append(indentLines(baseExpr, "    "));
+            if (!subChain.isEmpty()) {
+                builder.append(subChain.replaceAll("(?m)^ {2}", "    "));
+            }
+            builder.append("  )");
+            return builder.toString();
         }
 
         // right가 문자열일 경우, 기존 로직을 사용합니다.
@@ -258,6 +357,22 @@ public class StepBuilder {
         }
 
         return dfName + ".show(" + args + ")\n";
+    }
+
+    private String indentLines(String expr, String indent) {
+        if (expr == null || expr.isEmpty()) {
+            return indent + "\n";
+        }
+        String[] lines = expr.split("\\r?\\n", -1);
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < lines.length; i++) {
+            String line = lines[i];
+            if (i == lines.length - 1 && line.isEmpty()) {
+                continue;
+            }
+            sb.append(indent).append(line).append("\n");
+        }
+        return sb.toString();
     }
 
 }
