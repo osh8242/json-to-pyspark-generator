@@ -1,5 +1,6 @@
-package com.douzone.platform.recipe;
+package com.douzone.platform.recipe.load;
 
+import com.douzone.platform.recipe.PySparkChainGenerator;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -18,7 +19,6 @@ public class LoadClauseTest {
     @DisplayName("load - iceberg source")
     void testLoadIceberg_setsBaseExpression() throws Exception {
         String json = "{\n" +
-                "  \"input\": \"df\",\n" +
                 "  \"steps\": [\n" +
                 "    {\n" +
                 "      \"step\": \"load\",\n" +
