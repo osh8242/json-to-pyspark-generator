@@ -65,13 +65,15 @@ class LoadClauseTest {
         String actual = PySparkChainGenerator.generate(json);
         String expected = String.join("",
                 "result_df = (\n",
-                "  spark.read.format(\"jdbc\")\n",
-                "    .option(\"url\", \"jdbc:postgresql://localhost:5432/sample\")\n",
-                "    .option(\"dbtable\", \"public.orders\")\n",
-                "    .option(\"user\", \"app\")\n",
-                "    .option(\"password\", \"secret\")\n",
-                "    .option(\"driver\", \"org.postgresql.Driver\")\n",
-                "    .load()\n",
+                "  spark.read.jdbc(\n",
+                "    url=\"jdbc:postgresql://localhost:5432/sample\",\n",
+                "    table=\"public.orders\",\n",
+                "    properties={\n",
+                "      \"user\": \"app\",\n",
+                "      \"password\": \"secret\",\n",
+                "      \"driver\": \"org.postgresql.Driver\"\n",
+                "    }\n",
+                "  )\n",
                 "  .limit(10)\n",
                 ")\n");
 
@@ -91,7 +93,10 @@ class LoadClauseTest {
                 + "      \"host\": \"should-not-appear\",\n"
                 + "      \"port\": \"4444\",\n"
                 + "      \"database\": \"ignored\",\n"
-                + "      \"table\": \"sales\"\n"
+                + "      \"table\": \"sales\",\n"
+                + "      \"user\": \"app\",\n"
+                + "      \"password\": \"secret\",\n"
+                + "      \"driver\": \"org.postgresql.Driver\"\n"
                 + "    }\n"
                 + "  ]\n"
                 + "}";
@@ -100,7 +105,9 @@ class LoadClauseTest {
 
         printTestInfo("testLoadPostgres_respectsExplicitUrl", json, actual);
         Assertions.assertThat(actual)
-                .contains(".option(\"url\", \"jdbc:postgresql://external-host:9999/custom\")")
+                .contains("spark.read.jdbc(")
+                .contains("url=\"jdbc:postgresql://external-host:9999/custom\"")
+                .contains("\"driver\": \"org.postgresql.Driver\"")
                 .doesNotContain("should-not-appear")
                 .doesNotContain("4444")
                 .doesNotContain("ignored");
@@ -116,6 +123,9 @@ class LoadClauseTest {
                 + "      \"source\": \"postgres\",\n"
                 + "      \"url\": \"jdbc:postgresql://localhost:5432/demo\",\n"
                 + "      \"table\": \"t\",\n"
+                + "      \"user\": \"app\",\n"
+                + "      \"password\": \"secret\",\n"
+                + "      \"driver\": \"org.postgresql.Driver\",\n"
                 + "      \"options\": {\n"
                 + "        \"stringtype\": \"unspecified\",\n"
                 + "        \"fetchsize\": \"1000\"\n"
@@ -128,7 +138,52 @@ class LoadClauseTest {
 
         printTestInfo("testLoadPostgres_includesCustomOptions", json, actual);
         Assertions.assertThat(actual)
-                .contains(".option(\"stringtype\", \"unspecified\")")
-                .contains(".option(\"fetchsize\", \"1000\")");
+                .contains("\"stringtype\": \"unspecified\"")
+                .contains("\"fetchsize\": \"1000\"")
+                .contains("\"user\": \"app\"")
+                .contains("\"driver\": \"org.postgresql.Driver\"");
+    }
+
+    @Test
+    @DisplayName("load - postgres source (predicate 지원)")
+    void testLoadPostgres_supportsPredicate() throws Exception {
+        String json = "{\n"
+                + "  \"steps\": [\n"
+                + "    {\n"
+                + "      \"step\": \"load\",\n"
+                + "      \"source\": \"postgres\",\n"
+                + "      \"url\": \"jdbc:postgresql://localhost:5432/sample\",\n"
+                + "      \"table\": \"public.orders\",\n"
+                + "      \"user\": \"app\",\n"
+                + "      \"password\": \"secret\",\n"
+                + "      \"driver\": \"org.postgresql.Driver\",\n"
+                + "      \"predicate\": [\n"
+                + "        \"order_date >= '2024-01-01'\",\n"
+                + "        \"order_date < '2024-02-01'\"\n"
+                + "      ]\n"
+                + "    }\n"
+                + "  ]\n"
+                + "}";
+
+        String actual = PySparkChainGenerator.generate(json);
+        String expected = String.join("",
+                "result_df = (\n",
+                "  spark.read.jdbc(\n",
+                "    url=\"jdbc:postgresql://localhost:5432/sample\",\n",
+                "    table=\"public.orders\",\n",
+                "    predicates=[\n",
+                "      \"order_date >= '2024-01-01'\",\n",
+                "      \"order_date < '2024-02-01'\"\n",
+                "    ],\n",
+                "    properties={\n",
+                "      \"user\": \"app\",\n",
+                "      \"password\": \"secret\",\n",
+                "      \"driver\": \"org.postgresql.Driver\"\n",
+                "    }\n",
+                "  )\n",
+                ")\n");
+
+        printTestInfo("testLoadPostgres_supportsPredicate", json, actual);
+        Assertions.assertThat(actual).isEqualTo(expected);
     }
 }
