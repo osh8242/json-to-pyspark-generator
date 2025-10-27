@@ -52,6 +52,23 @@ public class ShowClauseTest {
     }
 
     @Test
+    @DisplayName("Show: truncate 길이 지정")
+    void testShowWithTruncateLength() throws Exception {
+        String json = "{\n"
+                + "  \"input\": \"df\",\n"
+                + "  \"steps\": [\n"
+                + "    { \"step\": \"show\", \"truncate\": 50 }\n"
+                + "  ]\n"
+                + "}";
+
+        String expected = buildFullScript("", "result_df.show(20, truncate=50)\n");
+        String actual = PySparkChainGenerator.generate(json);
+
+        printTestInfo("testShowWithTruncateLength", json, actual);
+        assertEquals(expected, actual);
+    }
+
+    @Test
     @DisplayName("Show: 다단계 체인 끝에 show 적용")
     void testShowInMultiStepPipeline() throws Exception {
         String json = "{\n"

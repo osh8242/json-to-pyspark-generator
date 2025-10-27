@@ -231,13 +231,20 @@ public class StepBuilder {
 
     public String buildShowAction(JsonNode node, String dfName) {
         int n = node.has("n") ? node.get("n").asInt(20) : 20;  // 기본 20행
-        boolean truncate = !node.has("truncate") || node.get("truncate").asBoolean(true);  // 기본 true
-        boolean vertical = node.has("vertical") && node.get("vertical").asBoolean(false);  // 기본 false
+        JsonNode truncateNode = node.get("truncate");
+        JsonNode verticalNode = node.get("vertical");
 
         StringBuilder args = new StringBuilder();
         args.append(n);
-        if (!truncate) {
-            args.append(", truncate=False");
+
+        if (truncateNode != null && !truncateNode.isNull()) {
+            if (truncateNode.isBoolean()) {
+                if (!truncateNode.asBoolean(true)) {
+                    args.append(", truncate=False");
+                }
+            } else {
+                args.append(", truncate=").append(truncateNode.asText());
+            }
         }
         if (vertical) {
             args.append(", vertical=True");
