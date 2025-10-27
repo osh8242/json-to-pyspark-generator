@@ -92,4 +92,26 @@ public class ShowClauseTest {
         printTestInfo("testShowInMultiStepPipeline", json, actual);
         assertEquals(expected, actual);
     }
+
+    @Test
+    @DisplayName("Show: 다중 show 스텝 순서 보존")
+    void testMultipleShowStepsPreserveOrder() throws Exception {
+        String json = "{\n"
+                + "  \"input\": \"df\",\n"
+                + "  \"steps\": [\n"
+                + "    { \"step\": \"show\", \"n\": 3 },\n"
+                + "    { \"step\": \"filter\", \"condition\": { \"type\": \"op\", \"op\": \"==\", \"left\": { \"type\": \"col\", \"name\": \"status\" }, \"right\": { \"type\": \"lit\", \"value\": \"ACTIVE\" } } },\n"
+                + "    { \"step\": \"show\", \"n\": 8, \"truncate\": false }\n"
+                + "  ]\n"
+                + "}";
+
+        String expectedSteps = "  .filter((F.col(\"status\") == F.lit(\"ACTIVE\")))\n";
+        String expected = buildFullScript(expectedSteps,
+                "result_df.show(3)\n",
+                "result_df.show(8, truncate=False)\n");
+        String actual = PySparkChainGenerator.generate(json);
+
+        printTestInfo("testMultipleShowStepsPreserveOrder", json, actual);
+        assertEquals(expected, actual);
+    }
 }
