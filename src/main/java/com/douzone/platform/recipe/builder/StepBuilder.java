@@ -246,8 +246,15 @@ public class StepBuilder {
                 args.append(", truncate=").append(truncateNode.asText());
             }
         }
-        if (vertical) {
-            args.append(", vertical=True");
+
+        if (verticalNode != null && !verticalNode.isNull()) {
+            if (verticalNode.isBoolean()) {
+                if (verticalNode.asBoolean(false)) {
+                    args.append(", vertical=True");
+                }
+            } else {
+                args.append(", vertical=").append(verticalNode.asText());
+            }
         }
 
         return dfName + ".show(" + args + ")\n";
