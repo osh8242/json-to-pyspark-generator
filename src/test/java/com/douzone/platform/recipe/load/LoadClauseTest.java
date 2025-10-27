@@ -5,76 +5,124 @@ import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-public class LoadClauseTest {
-
-    private String generateAndPrint(String json) throws Exception {
-        System.out.println("json = " + json);
-        System.out.println();
-        String code = PySparkChainGenerator.generate(json);
-        System.out.println("generated_code = " + code);
-        return code;
-    }
+class LoadClauseTest {
 
     @Test
     @DisplayName("load - iceberg source")
     void testLoadIceberg_setsBaseExpression() throws Exception {
-        String json = "{\n" +
-                "  \"steps\": [\n" +
-                "    {\n" +
-                "      \"step\": \"load\",\n" +
-                "      \"source\": \"iceberg\",\n" +
-                "      \"catalog\": \"dev\",\n" +
-                "      \"database\": \"sftp-60106\",\n" +
-                "      \"table\": \"orders\"\n" +
-                "    },\n" +
-                "    {\n" +
-                "      \"step\": \"select\",\n" +
-                "      \"columns\": [\n" +
-                "        { \"expr\": { \"type\": \"col\", \"name\": \"order_id\" } }\n" +
-                "      ]\n" +
-                "    }\n" +
-                "  ]\n" +
-                "}";
+        String json = "{\n"
+                + "  \"steps\": [\n"
+                + "    {\n"
+                + "      \"step\": \"load\",\n"
+                + "      \"source\": \"iceberg\",\n"
+                + "      \"catalog\": \"dev\",\n"
+                + "      \"database\": \"sftp-60106\",\n"
+                + "      \"table\": \"orders\"\n"
+                + "    },\n"
+                + "    {\n"
+                + "      \"step\": \"select\",\n"
+                + "      \"columns\": [\n"
+                + "        { \"expr\": { \"type\": \"col\", \"name\": \"order_id\" } }\n"
+                + "      ]\n"
+                + "    }\n"
+                + "  ]\n"
+                + "}";
 
-        String code = generateAndPrint(json);
+        String actual = PySparkChainGenerator.generate(json);
+        String expected = String.join("",
+                "result_df = (\n",
+                "  spark.read.table(\"dev.sftp-60106.orders\")\n",
+                "  .select(F.col(\"order_id\"))\n",
+                ")\n");
 
-        Assertions.assertThat(code).contains("spark.read.table(\"dev.sftp-60106.orders\")");
-        Assertions.assertThat(code).contains(".select(");
-        Assertions.assertThat(code).startsWith("result_df = (");
+        Assertions.assertThat(actual).isEqualTo(expected);
     }
 
     @Test
-    @DisplayName("load - postgres source")
-    void testLoadPostgres_setsJdbcOptions() throws Exception {
-        String json = "{\n" +
-                "  \"input\": \"df\",\n" +
-                "  \"steps\": [\n" +
-                "    {\n" +
-                "      \"step\": \"load\",\n" +
-                "      \"source\": \"postgres\",\n" +
-                "      \"host\": \"localhost\",\n" +
-                "      \"port\": \"5432\",\n" +
-                "      \"database\": \"sample\",\n" +
-                "      \"table\": \"public.orders\",\n" +
-                "      \"user\": \"app\",\n" +
-                "      \"password\": \"secret\",\n" +
-                "      \"driver\": \"org.postgresql.Driver\"\n" +
-                "    },\n" +
-                "    {\n" +
-                "      \"step\": \"limit\",\n" +
-                "      \"n\": 10\n" +
-                "    }\n" +
-                "  ]\n" +
-                "}";
+    @DisplayName("load - postgres source (host/port -> url 변환)")
+    void testLoadPostgres_buildsJdbcOptionsFromHostPort() throws Exception {
+        String json = "{\n"
+                + "  \"input\": \"df\",\n"
+                + "  \"steps\": [\n"
+                + "    {\n"
+                + "      \"step\": \"load\",\n"
+                + "      \"source\": \"postgres\",\n"
+                + "      \"host\": \"localhost\",\n"
+                + "      \"port\": \"5432\",\n"
+                + "      \"database\": \"sample\",\n"
+                + "      \"table\": \"public.orders\",\n"
+                + "      \"user\": \"app\",\n"
+                + "      \"password\": \"secret\",\n"
+                + "      \"driver\": \"org.postgresql.Driver\"\n"
+                + "    },\n"
+                + "    { \"step\": \"limit\", \"n\": 10 }\n"
+                + "  ]\n"
+                + "}";
 
-        String code = generateAndPrint(json);
+        String actual = PySparkChainGenerator.generate(json);
+        String expected = String.join("",
+                "result_df = (\n",
+                "  spark.read.format(\"jdbc\")\n",
+                "    .option(\"url\", \"jdbc:postgresql://localhost:5432/sample\")\n",
+                "    .option(\"dbtable\", \"public.orders\")\n",
+                "    .option(\"user\", \"app\")\n",
+                "    .option(\"password\", \"secret\")\n",
+                "    .option(\"driver\", \"org.postgresql.Driver\")\n",
+                "    .load()\n",
+                "  .limit(10)\n",
+                ")\n");
 
-        Assertions.assertThat(code).contains("spark.read.format(\"jdbc\")");
-        Assertions.assertThat(code).contains(".option(\"url\", \"jdbc:postgresql://localhost:5432/sample\")");
-        Assertions.assertThat(code).contains(".option(\"dbtable\", \"public.orders\")");
-        Assertions.assertThat(code).contains(".option(\"user\", \"app\")");
-        Assertions.assertThat(code).contains(".option(\"password\", \"secret\")");
-        Assertions.assertThat(code).contains(".option(\"driver\", \"org.postgresql.Driver\")");
-        Assertions.assertThat(code).contains(".limit(10)");
+        Assertions.assertThat(actual).isEqualTo(expected);
+    }
+
+    @Test
+    @DisplayName("load - postgres source (명시적 URL 우선)")
+    void testLoadPostgres_respectsExplicitUrl() throws Exception {
+        String json = "{\n"
+                + "  \"steps\": [\n"
+                + "    {\n"
+                + "      \"step\": \"load\",\n"
+                + "      \"source\": \"postgres\",\n"
+                + "      \"url\": \"jdbc:postgresql://external-host:9999/custom\",\n"
+                + "      \"host\": \"should-not-appear\",\n"
+                + "      \"port\": \"4444\",\n"
+                + "      \"database\": \"ignored\",\n"
+                + "      \"table\": \"sales\"\n"
+                + "    }\n"
+                + "  ]\n"
+                + "}";
+
+        String actual = PySparkChainGenerator.generate(json);
+
+        Assertions.assertThat(actual)
+                .contains(".option(\"url\", \"jdbc:postgresql://external-host:9999/custom\")")
+                .doesNotContain("should-not-appear")
+                .doesNotContain("4444")
+                .doesNotContain("ignored");
+    }
+
+    @Test
+    @DisplayName("load - postgres source (추가 options 직렬화)")
+    void testLoadPostgres_includesCustomOptions() throws Exception {
+        String json = "{\n"
+                + "  \"steps\": [\n"
+                + "    {\n"
+                + "      \"step\": \"load\",\n"
+                + "      \"source\": \"postgres\",\n"
+                + "      \"url\": \"jdbc:postgresql://localhost:5432/demo\",\n"
+                + "      \"table\": \"t\",\n"
+                + "      \"options\": {\n"
+                + "        \"stringtype\": \"unspecified\",\n"
+                + "        \"fetchsize\": \"1000\"\n"
+                + "      }\n"
+                + "    }\n"
+                + "  ]\n"
+                + "}";
+
+        String actual = PySparkChainGenerator.generate(json);
+
+        Assertions.assertThat(actual)
+                .contains(".option(\"stringtype\", \"unspecified\")")
+                .contains(".option(\"fetchsize\", \"1000\")");
     }
 }
