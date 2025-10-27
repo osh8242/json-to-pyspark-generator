@@ -131,4 +131,33 @@ class LoadClauseTest {
                 .contains(".option(\"stringtype\", \"unspecified\")")
                 .contains(".option(\"fetchsize\", \"1000\")");
     }
+
+    @Test
+    @DisplayName("load - postgres source (predicate 옵션 적용)")
+    void testLoadPostgres_includesPredicateOption() throws Exception {
+        String json = "{\n"
+                + "  \"steps\": [\n"
+                + "    {\n"
+                + "      \"step\": \"load\",\n"
+                + "      \"source\": \"postgres\",\n"
+                + "      \"url\": \"jdbc:postgresql://localhost:5432/demo\",\n"
+                + "      \"table\": \"public.orders\",\n"
+                + "      \"predicate\": \"created_at >= '2024-01-01'\"\n"
+                + "    }\n"
+                + "  ]\n"
+                + "}";
+
+        String actual = PySparkChainGenerator.generate(json);
+        String expected = String.join("",
+                "result_df = (\n",
+                "  spark.read.jdbc(\n",
+                "    url=\"jdbc:postgresql://localhost:5432/demo\",\n",
+                "    table=\"public.orders\",\n",
+                "    predicates=[\"created_at >= '2024-01-01'\"]\n",
+                "  )\n",
+                ")\n");
+
+        printTestInfo("testLoadPostgres_includesPredicateOption", json, actual);
+        Assertions.assertThat(actual).isEqualTo(expected);
+    }
 }

@@ -83,6 +83,27 @@ public class StepBuilder {
         String user = StringUtil.getText(node, "user", null);
         String password = StringUtil.getText(node, "password", null);
         String driver = StringUtil.getText(node, "driver", null);
+        List<String> predicates = new ArrayList<>();
+        JsonNode predicatesNode = node.get("predicates");
+        if (predicatesNode != null) {
+            if (predicatesNode.isArray()) {
+                predicatesNode.forEach(item -> {
+                    if (item != null && !item.isNull()) {
+                        predicates.add(item.asText());
+                    }
+                });
+            } else if (predicatesNode.isTextual()) {
+                predicates.add(predicatesNode.asText());
+            }
+        }
+        String singlePredicate = StringUtil.getText(node, "predicate", null);
+        if (singlePredicate != null && !singlePredicate.isEmpty()) {
+            predicates.add(singlePredicate);
+        }
+
+        if (!predicates.isEmpty() && table != null) {
+            return buildPostgresJdbcWithPredicates(url, table, predicates, user, password, driver, node.get("options"));
+        }
 
         StringBuilder sb = new StringBuilder("spark.read.format(\"jdbc\")");
         sb.append("\n  .option(\"url\", ").append(StringUtil.pyString(url)).append(")");
@@ -99,7 +120,78 @@ public class StepBuilder {
             sb.append("\n  .option(\"driver\", ").append(StringUtil.pyString(driver)).append(")");
         }
 
-        JsonNode optionsNode = node.get("options");
+        appendCustomOptions(sb, node.get("options"));
+
+        sb.append("\n  .load()");
+        return sb.toString();
+    }
+
+    private String buildPostgresJdbcWithPredicates(String url,
+                                                   String table,
+                                                   List<String> predicates,
+                                                   String user,
+                                                   String password,
+                                                   String driver,
+                                                   JsonNode optionsNode) {
+        StringBuilder sb = new StringBuilder("spark.read.jdbc(");
+        List<String> args = new ArrayList<>();
+        args.add("url=" + StringUtil.pyString(url));
+        args.add("table=" + StringUtil.pyString(table));
+        args.add("predicates=" + formatPythonList(predicates));
+
+        String propertiesExpr = buildJdbcProperties(user, password, driver, optionsNode);
+        if (propertiesExpr != null) {
+            args.add("properties=" + propertiesExpr);
+        }
+
+        for (int i = 0; i < args.size(); i++) {
+            sb.append("\n  ").append(args.get(i));
+            if (i < args.size() - 1) {
+                sb.append(",");
+            }
+        }
+
+        sb.append("\n)");
+        return sb.toString();
+    }
+
+    private String formatPythonList(List<String> values) {
+        List<String> quoted = new ArrayList<>();
+        for (String value : values) {
+            quoted.add(StringUtil.pyString(value));
+        }
+        return "[" + String.join(", ", quoted) + "]";
+    }
+
+    private String buildJdbcProperties(String user,
+                                       String password,
+                                       String driver,
+                                       JsonNode optionsNode) {
+        List<String> entries = new ArrayList<>();
+        if (user != null) {
+            entries.add(StringUtil.pyString("user") + ": " + StringUtil.pyString(user));
+        }
+        if (password != null) {
+            entries.add(StringUtil.pyString("password") + ": " + StringUtil.pyString(password));
+        }
+        if (driver != null) {
+            entries.add(StringUtil.pyString("driver") + ": " + StringUtil.pyString(driver));
+        }
+        if (optionsNode != null && optionsNode.isObject()) {
+            optionsNode.fieldNames().forEachRemaining(name -> {
+                JsonNode value = optionsNode.get(name);
+                entries.add(StringUtil.pyString(name) + ": " + StringUtil.pyString(value.asText()));
+            });
+        }
+
+        if (entries.isEmpty()) {
+            return null;
+        }
+
+        return "{" + String.join(", ", entries) + "}";
+    }
+
+    private void appendCustomOptions(StringBuilder sb, JsonNode optionsNode) {
         if (optionsNode != null && optionsNode.isObject()) {
             optionsNode.fieldNames().forEachRemaining(name -> {
                 JsonNode value = optionsNode.get(name);
@@ -110,9 +202,6 @@ public class StepBuilder {
                         .append(")");
             });
         }
-
-        sb.append("\n  .load()");
-        return sb.toString();
     }
 
     public String buildSelect(JsonNode node) {
