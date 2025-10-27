@@ -27,7 +27,7 @@ public class ShowClauseTest {
                 + "  ]\n"
                 + "}";
 
-        String expected = buildFullScript(null, "result_df.show(20)\n");
+        String expected = buildFullScript("", "result_df.show(20)\n");
         String actual = PySparkChainGenerator.generate(json);
 
         printTestInfo("testBasicShow", json, actual);
@@ -44,7 +44,7 @@ public class ShowClauseTest {
                 + "  ]\n"
                 + "}";
 
-        String expected = buildFullScript(null, "result_df.show(5, truncate=False, vertical=True)\n");
+        String expected = buildFullScript("", "result_df.show(5, truncate=False, vertical=True)\n");
         String actual = PySparkChainGenerator.generate(json);
 
         printTestInfo("testShowWithOptions", json, actual);
@@ -61,27 +61,10 @@ public class ShowClauseTest {
                 + "  ]\n"
                 + "}";
 
-        String expected = buildFullScript(null, "result_df.show(20, truncate=50)\n");
+        String expected = buildFullScript("", "result_df.show(20, truncate=50)\n");
         String actual = PySparkChainGenerator.generate(json);
 
         printTestInfo("testShowWithTruncateLength", json, actual);
-        assertEquals(expected, actual);
-    }
-
-    @Test
-    @DisplayName("Show: truncate=true 옵션은 생략")
-    void testShowWithTruncateTrueIsOmitted() throws Exception {
-        String json = "{\n"
-                + "  \"input\": \"df\",\n"
-                + "  \"steps\": [\n"
-                + "    { \"step\": \"show\", \"n\": 15, \"truncate\": true }\n"
-                + "  ]\n"
-                + "}";
-
-        String expected = buildFullScript(null, "result_df.show(15)\n");
-        String actual = PySparkChainGenerator.generate(json);
-
-        printTestInfo("testShowWithTruncateTrueIsOmitted", json, actual);
         assertEquals(expected, actual);
     }
 

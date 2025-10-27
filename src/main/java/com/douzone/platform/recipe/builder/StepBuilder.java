@@ -246,8 +246,7 @@ public class StepBuilder {
                 args.append(", truncate=").append(truncateNode.asText());
             }
         }
-
-        if (verticalNode != null && verticalNode.asBoolean(false)) {
+        if (vertical) {
             args.append(", vertical=True");
         }
 
