@@ -328,6 +328,66 @@ public class StepBuilder {
         return "  .withColumnRenamed(" + StringUtil.pyString(src) + ", " + StringUtil.pyString(dst) + ")\n";
     }
 
+    public String buildDefaultStep(String stepName, JsonNode node) {
+        if (stepName == null) {
+            return "";
+        }
+
+        String normalized = stepName.trim();
+        if (normalized.isEmpty()) {
+            return "";
+        }
+
+        List<String> args = new ArrayList<>();
+        if (node != null) {
+            JsonNode argsNode = node.get("args");
+            if (argsNode != null && !argsNode.isNull()) {
+                if (argsNode.isArray()) {
+                    for (JsonNode arg : argsNode) {
+                        args.add(buildDefaultArgument(arg));
+                    }
+                } else {
+                    args.add(buildDefaultArgument(argsNode));
+                }
+            }
+        }
+
+        String joinedArgs = String.join(", ", args);
+        return "  ." + normalized + "(" + joinedArgs + ")\n";
+    }
+
+    private String buildDefaultArgument(JsonNode arg) {
+        if (arg == null || arg.isNull()) {
+            return "None";
+        }
+
+        if (arg.isObject() && arg.has("type")) {
+            return expressionBuilder.buildExpr(arg);
+        }
+
+        if (arg.isTextual()) {
+            return StringUtil.pyString(arg.asText());
+        }
+
+        if (arg.isBoolean()) {
+            return StringUtil.pyBool(arg.asBoolean());
+        }
+
+        if (arg.isNumber()) {
+            return arg.asText();
+        }
+
+        if (arg.isArray()) {
+            List<String> items = new ArrayList<>();
+            for (JsonNode item : arg) {
+                items.add(buildDefaultArgument(item));
+            }
+            return "[" + String.join(", ", items) + "]";
+        }
+
+        return arg.toString();
+    }
+
     public String buildShowAction(JsonNode node, String dfName) {
         int n = node.has("n") ? node.get("n").asInt(20) : 20;  // 기본 20행
         JsonNode truncateNode = node.get("truncate");
