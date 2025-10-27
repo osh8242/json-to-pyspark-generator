@@ -15,7 +15,6 @@ public class TestUtil {
      */
     public static String buildFullScript(String stepCode, String... actionLines) {
         StringBuilder sb = new StringBuilder();
-        sb.append("from pyspark.sql import functions as F\n\n");
         sb.append("result_df = (\n");
         sb.append("  df\n");
         if (stepCode != null) {

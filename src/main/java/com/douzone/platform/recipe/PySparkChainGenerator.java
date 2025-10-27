@@ -78,7 +78,6 @@ public class PySparkChainGenerator {
         ChainBuildResult chainResult = buildChain(inputDf, transformSteps);
 
         StringBuilder sb = new StringBuilder();
-        sb.append("from pyspark.sql import functions as F\n\n");
         sb.append(outDf).append(" = (\n");
         sb.append(formatBaseExpression(chainResult.getBaseExpression()));
         sb.append(chainResult.getChain());

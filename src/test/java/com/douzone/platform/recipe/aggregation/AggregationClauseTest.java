@@ -202,8 +202,7 @@ public class AggregationClauseTest {
                 + "      F.sum(F.col(\"amount\")).alias(\"total_sales\"),\n"
                 + "      F.max(F.col(\"transaction_date\")).alias(\"latest_transaction\")\n"
                 + "  )\n";
-        String expected = "from pyspark.sql import functions as F\n\n"
-                + "result_df = (\n"
+        String expected = "result_df = (\n"
                 + "  sales_df\n" // input이 df가 아닌 경우도 테스트
                 + expectedStep
                 + ")\n";

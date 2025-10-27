@@ -121,9 +121,6 @@ public class PySparkChainGeneratorTest {
         String out = PySparkChainGenerator.generate(json);
         System.out.println("result_df = " + out);
 
-        // header 확인
-        assertTrue(out.contains("from pyspark.sql import functions as F"), "헤더가 포함되어야 함");
-
         // filter 표현 확인 (컬럼/리터럴)
         assertTrue(out.contains("F.col(\"age\")"), "age 컬럼 참조가 포함되어야 함");
         assertTrue(out.contains("F.lit(65)"), "65 리터럴이 포함되어야 함");
@@ -358,7 +355,7 @@ public class PySparkChainGeneratorTest {
         assertTrue(out.contains("F.avg(") && out.contains("F.col(\"age\")"), "avg(age) 표현이 포함되어야 함");
         assertTrue(out.contains(".alias(\"avg_age\")"), "avg alias 'avg_age' 포함되어야 함");
         Assertions.assertThat(FormatUtil.normalizeWhitespace(out)).isEqualTo(
-                "from pyspark.sql import functions as F result_df = ( spark.table('patientinfo') .groupBy(F.col(\"disease_code\")) .agg( F.count(F.lit(\"*\")).alias(\"cnt\"), F.avg(F.col(\"age\")).alias(\"avg_age\") ) )"
+                "result_df = ( spark.table('patientinfo') .groupBy(F.col(\"disease_code\")) .agg( F.count(F.lit(\"*\")).alias(\"cnt\"), F.avg(F.col(\"age\")).alias(\"avg_age\") ) )"
         );
     }
 

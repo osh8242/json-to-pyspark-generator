@@ -40,7 +40,7 @@ public class LoadClauseTest {
 
         Assertions.assertThat(code).contains("spark.read.table(\"dev.sftp-60106.orders\")");
         Assertions.assertThat(code).contains(".select(");
-        Assertions.assertThat(code).startsWith("from pyspark.sql import functions as F\n\nresult_df = (");
+        Assertions.assertThat(code).startsWith("result_df = (");
     }
 
     @Test
