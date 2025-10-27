@@ -186,6 +186,25 @@ public class PySparkChainGeneratorTest {
     }
 
     @Test
+    @DisplayName("알 수 없는 step 은 기본 메서드 체인으로 처리")
+    void testUnknownStepFallsBackToDefaultBuilder() throws Exception {
+        String json = "{\n"
+                + "  \"input\": \"df\",\n"
+                + "  \"steps\": [\n"
+                + "    { \"step\": \"cache\" },\n"
+                + "    { \"step\": \"persist\", \"args\": [ { \"type\": \"lit\", \"value\": \"MEMORY_ONLY\" } ] },\n"
+                + "    { \"step\": \"count\" }\n"
+                + "  ]\n"
+                + "}";
+
+        String out = PySparkChainGenerator.generate(json);
+
+        Assertions.assertThat(out).contains(".cache()");
+        Assertions.assertThat(out).contains(".persist(F.lit(\"MEMORY_ONLY\"))");
+        Assertions.assertThat(out).contains(".count()");
+    }
+
+    @Test
     @DisplayName("join 테스트")
     public void testJoin_withAliases_containsExpectedFragments() throws Exception {
         String json = "{\n" +

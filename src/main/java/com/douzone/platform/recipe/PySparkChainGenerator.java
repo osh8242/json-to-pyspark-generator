@@ -164,6 +164,7 @@ public class PySparkChainGenerator {
                     sb.append(stepBuilder.buildWithColumnRenamed(step));
                     break;
                 default:
+                    sb.append(stepBuilder.buildDefaultStep(opName, step));
                     break;
             }
         }
