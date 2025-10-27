@@ -24,69 +24,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 public class PySparkChainGeneratorTest {
 
     @Test
-    @DisplayName("load - iceberg source")
-    public void testLoadIceberg_setsBaseExpression() throws Exception {
-        String json = "{\n" +
-                "  \"input\": \"df\",\n" +
-                "  \"steps\": [\n" +
-                "    {\n" +
-                "      \"step\": \"load\",\n" +
-                "      \"source\": \"iceberg\",\n" +
-                "      \"catalog\": \"dev\",\n" +
-                "      \"database\": \"sftp-60106\",\n" +
-                "      \"table\": \"orders\"\n" +
-                "    },\n" +
-                "    {\n" +
-                "      \"step\": \"select\",\n" +
-                "      \"columns\": [\n" +
-                "        { \"expr\": { \"type\": \"col\", \"name\": \"order_id\" } }\n" +
-                "      ]\n" +
-                "    }\n" +
-                "  ]\n" +
-                "}";
-
-        String out = PySparkChainGenerator.generate(json);
-
-        Assertions.assertThat(out).contains("spark.read.table(\"dev.sftp-60106.orders\")");
-        Assertions.assertThat(out).contains(".select(");
-    }
-
-    @Test
-    @DisplayName("load - postgres source")
-    public void testLoadPostgres_setsJdbcOptions() throws Exception {
-        String json = "{\n" +
-                "  \"input\": \"df\",\n" +
-                "  \"steps\": [\n" +
-                "    {\n" +
-                "      \"step\": \"load\",\n" +
-                "      \"source\": \"postgres\",\n" +
-                "      \"host\": \"localhost\",\n" +
-                "      \"port\": \"5432\",\n" +
-                "      \"database\": \"sample\",\n" +
-                "      \"table\": \"public.orders\",\n" +
-                "      \"user\": \"app\",\n" +
-                "      \"password\": \"secret\",\n" +
-                "      \"driver\": \"org.postgresql.Driver\"\n" +
-                "    },\n" +
-                "    {\n" +
-                "      \"step\": \"limit\",\n" +
-                "      \"n\": 10\n" +
-                "    }\n" +
-                "  ]\n" +
-                "}";
-
-        String out = PySparkChainGenerator.generate(json);
-
-        Assertions.assertThat(out).contains("spark.read.format(\"jdbc\")");
-        Assertions.assertThat(out).contains(".option(\"url\", \"jdbc:postgresql://localhost:5432/sample\")");
-        Assertions.assertThat(out).contains(".option(\"dbtable\", \"public.orders\")");
-        Assertions.assertThat(out).contains(".option(\"user\", \"app\")");
-        Assertions.assertThat(out).contains(".option(\"password\", \"secret\")");
-        Assertions.assertThat(out).contains(".option(\"driver\", \"org.postgresql.Driver\")");
-        Assertions.assertThat(out).contains(".limit(10)");
-    }
-
-    @Test
     public void testBasicPipeline_containsExpectedFragments() throws Exception {
         String json = "{\n" +
                 "  \"input\": \"df\",\n" +

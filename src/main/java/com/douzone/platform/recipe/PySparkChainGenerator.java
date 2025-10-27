@@ -7,9 +7,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import lombok.Getter;
 
-import java.util.ArrayList;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Set;
 
 public class PySparkChainGenerator {
@@ -55,33 +53,116 @@ public class PySparkChainGenerator {
         String inputDf = StringUtil.getText(root, "input", "df");
         String outDf = StringUtil.getText(root, "output", "result_df");
         ArrayNode steps = (ArrayNode) root.get("steps");
-        List<JsonNode> showSteps = new ArrayList<>();
-        ArrayNode transformSteps = steps;
+
+        StringBuilder script = new StringBuilder();
+        String currentBase = inputDf;
+        StringBuilder chainBuilder = new StringBuilder();
+        boolean materialized = false;
+
         if (steps != null) {
-            ArrayNode filtered = om.createArrayNode();
             for (JsonNode step : steps) {
                 String opName = StringUtil.getText(step, "step", null);
-                if ("show".equals(opName)) {
-                    showSteps.add(step);
-                } else {
-                    filtered.add(step);
+                if (opName == null) {
+                    continue;
+                }
+
+                switch (opName) {
+                    case "load":
+                        String loadExpr = stepBuilder.buildLoad(step);
+                        if (loadExpr != null && !loadExpr.isEmpty()) {
+                            currentBase = loadExpr;
+                            chainBuilder.setLength(0);
+                            materialized = false;
+                        }
+                        break;
+                    case "show":
+                        if (!materialized || chainBuilder.length() > 0 || !outDf.equals(currentBase)) {
+                            appendAssignment(script, outDf, currentBase, chainBuilder);
+                            currentBase = outDf;
+                            chainBuilder.setLength(0);
+                            materialized = true;
+                        }
+                        script.append(stepBuilder.buildShowAction(step, outDf));
+                        break;
+                    case "select":
+                        chainBuilder.append(stepBuilder.buildSelect(step));
+                        materialized = false;
+                        break;
+                    case "withColumn":
+                        chainBuilder.append(stepBuilder.buildWithColumn(step));
+                        materialized = false;
+                        break;
+                    case "withColumns":
+                        chainBuilder.append(stepBuilder.buildWithColumns(step));
+                        materialized = false;
+                        break;
+                    case "filter":
+                    case "where":
+                        chainBuilder.append(stepBuilder.buildFilter(step));
+                        materialized = false;
+                        break;
+                    case "join":
+                        chainBuilder.append(stepBuilder.buildJoin(step));
+                        materialized = false;
+                        break;
+                    case "groupBy":
+                        chainBuilder.append(stepBuilder.buildGroupBy(step));
+                        materialized = false;
+                        break;
+                    case "agg":
+                        chainBuilder.append(stepBuilder.buildAgg(step));
+                        materialized = false;
+                        break;
+                    case "orderBy":
+                    case "sort":
+                        chainBuilder.append(stepBuilder.buildOrderBy(step));
+                        materialized = false;
+                        break;
+                    case "limit":
+                        chainBuilder.append(stepBuilder.buildLimit(step));
+                        materialized = false;
+                        break;
+                    case "distinct":
+                        chainBuilder.append("  .distinct()\n");
+                        materialized = false;
+                        break;
+                    case "dropDuplicates":
+                        chainBuilder.append(stepBuilder.buildDropDuplicates(step));
+                        materialized = false;
+                        break;
+                    case "repartition":
+                        chainBuilder.append(stepBuilder.buildRepartition(step));
+                        materialized = false;
+                        break;
+                    case "coalesce":
+                        chainBuilder.append(stepBuilder.buildCoalesce(step));
+                        materialized = false;
+                        break;
+                    case "sample":
+                        chainBuilder.append(stepBuilder.buildSample(step));
+                        materialized = false;
+                        break;
+                    case "drop":
+                        chainBuilder.append(stepBuilder.buildDrop(step));
+                        materialized = false;
+                        break;
+                    case "withColumnRenamed":
+                        chainBuilder.append(stepBuilder.buildWithColumnRenamed(step));
+                        materialized = false;
+                        break;
+                    default:
+                        chainBuilder.append(stepBuilder.buildDefaultStep(opName, step));
+                        materialized = false;
+                        break;
                 }
             }
-            transformSteps = filtered;
         }
 
-        ChainBuildResult chainResult = buildChain(inputDf, transformSteps);
-
-        StringBuilder sb = new StringBuilder();
-        sb.append(outDf).append(" = (\n");
-        sb.append(formatBaseExpression(chainResult.getBaseExpression()));
-        sb.append(chainResult.getChain());
-        sb.append(")\n");
-
-        for (JsonNode showStep : showSteps) {
-            sb.append(stepBuilder.buildShowAction(showStep, outDf));
+        if (!materialized || chainBuilder.length() > 0 || !outDf.equals(currentBase)) {
+            appendAssignment(script, outDf, currentBase, chainBuilder);
         }
-        return sb.toString();
+
+        return script.toString();
     }
 
     /**
@@ -135,6 +216,9 @@ public class PySparkChainGenerator {
                     break;
                 case "limit":
                     sb.append(stepBuilder.buildLimit(step));
+                    break;
+                case "show":
+                    // show는 action이므로 체인에 포함하지 않음
                     break;
                 case "distinct":
                     sb.append("  .distinct()\n");
@@ -219,6 +303,13 @@ public class PySparkChainGenerator {
                 // 다른 step은 테이블 생성 안 하므로 무시
             }
         }
+    }
+
+    private void appendAssignment(StringBuilder script, String outDf, String baseExpression, StringBuilder chainBuilder) {
+        script.append(outDf).append(" = (\n");
+        script.append(formatBaseExpression(baseExpression));
+        script.append(chainBuilder);
+        script.append(")\n");
     }
 
     private String formatBaseExpression(String baseExpression) {

@@ -105,13 +105,47 @@ public class ShowClauseTest {
                 + "  ]\n"
                 + "}";
 
-        String expectedSteps = "  .filter((F.col(\"status\") == F.lit(\"ACTIVE\")))\n";
-        String expected = buildFullScript(expectedSteps,
+        String expected = String.join("",
+                "result_df = (\n",
+                "  df\n",
+                ")\n",
                 "result_df.show(3)\n",
+                "result_df = (\n",
+                "  result_df\n",
+                "  .filter((F.col(\"status\") == F.lit(\"ACTIVE\")))\n",
+                ")\n",
                 "result_df.show(8, truncate=False)\n");
         String actual = PySparkChainGenerator.generate(json);
 
         printTestInfo("testMultipleShowStepsPreserveOrder", json, actual);
+        assertEquals(expected, actual);
+    }
+
+    @Test
+    @DisplayName("Show: 중간 show 가 체인을 분할하여 중간 결과를 출력")
+    void testShowSplitsPipelineForIntermediateResults() throws Exception {
+        String json = "{\n"
+                + "  \"input\": \"df\",\n"
+                + "  \"steps\": [\n"
+                + "    { \"step\": \"withColumn\", \"name\": \"flag\", \"expr\": { \"type\": \"lit\", \"value\": 1 } },\n"
+                + "    { \"step\": \"show\" },\n"
+                + "    { \"step\": \"filter\", \"condition\": { \"type\": \"op\", \"op\": \">\", \"left\": { \"type\": \"col\", \"name\": \"age\" }, \"right\": { \"type\": \"lit\", \"value\": 30 } } }\n"
+                + "  ]\n"
+                + "}";
+
+        String expected = String.join("",
+                "result_df = (\n",
+                "  df\n",
+                "  .withColumn(\"flag\", F.lit(1))\n",
+                ")\n",
+                "result_df.show(20)\n",
+                "result_df = (\n",
+                "  result_df\n",
+                "  .filter((F.col(\"age\") > F.lit(30)))\n",
+                ")\n");
+        String actual = PySparkChainGenerator.generate(json);
+
+        printTestInfo("testShowSplitsPipelineForIntermediateResults", json, actual);
         assertEquals(expected, actual);
     }
 }
