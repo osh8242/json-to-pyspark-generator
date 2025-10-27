@@ -27,8 +27,7 @@ public class ShowClauseTest {
                 + "  ]\n"
                 + "}";
 
-        String expectedStep = "  .show(20)\n";
-        String expected = buildFullScript(expectedStep);
+        String expected = buildFullScript("", "result_df.show(20)\n");
         String actual = PySparkChainGenerator.generate(json);
 
         printTestInfo("testBasicShow", json, actual);
@@ -45,11 +44,27 @@ public class ShowClauseTest {
                 + "  ]\n"
                 + "}";
 
-        String expectedStep = "  .show(5, truncate=False, vertical=True)\n";
-        String expected = buildFullScript(expectedStep);
+        String expected = buildFullScript("", "result_df.show(5, truncate=False, vertical=True)\n");
         String actual = PySparkChainGenerator.generate(json);
 
         printTestInfo("testShowWithOptions", json, actual);
+        assertEquals(expected, actual);
+    }
+
+    @Test
+    @DisplayName("Show: truncate 길이 지정")
+    void testShowWithTruncateLength() throws Exception {
+        String json = "{\n"
+                + "  \"input\": \"df\",\n"
+                + "  \"steps\": [\n"
+                + "    { \"step\": \"show\", \"truncate\": 50 }\n"
+                + "  ]\n"
+                + "}";
+
+        String expected = buildFullScript("", "result_df.show(20, truncate=50)\n");
+        String actual = PySparkChainGenerator.generate(json);
+
+        printTestInfo("testShowWithTruncateLength", json, actual);
         assertEquals(expected, actual);
     }
 
@@ -70,9 +85,8 @@ public class ShowClauseTest {
                 + "  .groupBy(F.col(\"department\"))\n"
                 + "  .agg(\n"
                 + "      F.avg(F.col(\"salary\")).alias(\"avg_salary\")\n"
-                + "  )\n"
-                + "  .show(10)\n";
-        String expected = buildFullScript(expectedSteps);
+                + "  )\n";
+        String expected = buildFullScript(expectedSteps, "result_df.show(10)\n");
         String actual = PySparkChainGenerator.generate(json);
 
         printTestInfo("testShowInMultiStepPipeline", json, actual);

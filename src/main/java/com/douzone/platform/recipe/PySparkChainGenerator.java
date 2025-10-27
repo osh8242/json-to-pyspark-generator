@@ -6,7 +6,9 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 
+import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 public class PySparkChainGenerator {
@@ -40,13 +42,31 @@ public class PySparkChainGenerator {
         String inputDf = StringUtil.getText(root, "input", "df");
         String outDf = StringUtil.getText(root, "output", "result_df");
         ArrayNode steps = (ArrayNode) root.get("steps");
+        List<JsonNode> showSteps = new ArrayList<>();
+        ArrayNode transformSteps = steps;
+        if (steps != null) {
+            ArrayNode filtered = om.createArrayNode();
+            for (JsonNode step : steps) {
+                String opName = StringUtil.getText(step, "step", null);
+                if ("show".equals(opName)) {
+                    showSteps.add(step);
+                } else {
+                    filtered.add(step);
+                }
+            }
+            transformSteps = filtered;
+        }
 
         StringBuilder sb = new StringBuilder();
         sb.append("from pyspark.sql import functions as F\n\n");
         sb.append(outDf).append(" = (\n");
         sb.append("  ").append(inputDf).append("\n");
-        sb.append(buildChainFromSteps(steps));
+        sb.append(buildChainFromSteps(transformSteps));
         sb.append(")\n");
+
+        for (JsonNode showStep : showSteps) {
+            sb.append(stepBuilder.buildShowAction(showStep, outDf));
+        }
         return sb.toString();
     }
 
@@ -114,9 +134,6 @@ public class PySparkChainGenerator {
                     break;
                 case "withColumnRenamed":
                     sb.append(stepBuilder.buildWithColumnRenamed(step));
-                    break;
-                case "show":
-                    sb.append(stepBuilder.buildShow(step));
                     break;
                 default:
                     break;
