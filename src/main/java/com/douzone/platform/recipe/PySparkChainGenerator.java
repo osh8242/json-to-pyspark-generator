@@ -13,6 +13,18 @@ import java.util.Set;
 
 public class PySparkChainGenerator {
 
+    private static final Set<String> SIMPLE_NO_ARG_ACTIONS = Set.of(
+            "count",
+            "collect",
+            "first",
+            "head",
+            "tail",
+            "toPandas",
+            "toLocalIterator",
+            "printSchema",
+            "explain"
+    );
+
     public static class ChainBuildResult {
         private final String baseExpression;
         private final String chain;
@@ -28,6 +40,16 @@ public class PySparkChainGenerator {
 
         public String getChain() {
             return chain;
+        }
+    }
+
+    private static class ActionStep {
+        private final String name;
+        private final JsonNode node;
+
+        private ActionStep(String name, JsonNode node) {
+            this.name = name;
+            this.node = node;
         }
     }
 
@@ -60,14 +82,14 @@ public class PySparkChainGenerator {
         String inputDf = StringUtil.getText(root, "input", "df");
         String outDf = StringUtil.getText(root, "output", "result_df");
         ArrayNode steps = (ArrayNode) root.get("steps");
-        List<JsonNode> showSteps = new ArrayList<>();
+        List<ActionStep> actionSteps = new ArrayList<>();
         ArrayNode transformSteps = steps;
         if (steps != null) {
             ArrayNode filtered = om.createArrayNode();
             for (JsonNode step : steps) {
                 String opName = StringUtil.getText(step, "step", null);
-                if ("show".equals(opName)) {
-                    showSteps.add(step);
+                if (isShowStep(opName) || isNoArgAction(opName)) {
+                    actionSteps.add(new ActionStep(opName, step));
                 } else {
                     filtered.add(step);
                 }
@@ -84,10 +106,22 @@ public class PySparkChainGenerator {
         sb.append(chainResult.getChain());
         sb.append(")\n");
 
-        for (JsonNode showStep : showSteps) {
-            sb.append(stepBuilder.buildShowAction(showStep, outDf));
+        for (ActionStep actionStep : actionSteps) {
+            if (isShowStep(actionStep.name)) {
+                sb.append(stepBuilder.buildShowAction(actionStep.node, outDf));
+            } else {
+                sb.append(stepBuilder.buildNoArgAction(actionStep.name, outDf));
+            }
         }
         return sb.toString();
+    }
+
+    private boolean isShowStep(String opName) {
+        return "show".equals(opName);
+    }
+
+    private boolean isNoArgAction(String opName) {
+        return SIMPLE_NO_ARG_ACTIONS.contains(opName);
     }
 
     /**

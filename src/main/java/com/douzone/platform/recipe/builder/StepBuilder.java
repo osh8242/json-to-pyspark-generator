@@ -359,6 +359,10 @@ public class StepBuilder {
         return dfName + ".show(" + args + ")\n";
     }
 
+    public String buildNoArgAction(String actionName, String dfName) {
+        return dfName + "." + actionName + "()\n";
+    }
+
     private String indentLines(String expr, String indent) {
         if (expr == null || expr.isEmpty()) {
             return indent + "\n";
