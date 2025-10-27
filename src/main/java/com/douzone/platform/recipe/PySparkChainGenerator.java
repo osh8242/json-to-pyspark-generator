@@ -5,6 +5,7 @@ import com.douzone.platform.recipe.util.StringUtil;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
+import lombok.Getter;
 
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -13,6 +14,7 @@ import java.util.Set;
 
 public class PySparkChainGenerator {
 
+    @Getter
     public static class ChainBuildResult {
         private final String baseExpression;
         private final String chain;
@@ -22,13 +24,6 @@ public class PySparkChainGenerator {
             this.chain = chain;
         }
 
-        public String getBaseExpression() {
-            return baseExpression;
-        }
-
-        public String getChain() {
-            return chain;
-        }
     }
 
     private final StepBuilder stepBuilder;
