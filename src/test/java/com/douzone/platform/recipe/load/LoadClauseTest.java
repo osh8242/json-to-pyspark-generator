@@ -5,6 +5,8 @@ import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
+import static com.douzone.platform.recipe.util.TestUtil.printTestInfo;
+
 class LoadClauseTest {
 
     @Test
@@ -35,6 +37,7 @@ class LoadClauseTest {
                 "  .select(F.col(\"order_id\"))\n",
                 ")\n");
 
+        printTestInfo("testLoadIceberg_setsBaseExpression", json, actual);
         Assertions.assertThat(actual).isEqualTo(expected);
     }
 
@@ -72,6 +75,7 @@ class LoadClauseTest {
                 "  .limit(10)\n",
                 ")\n");
 
+        printTestInfo("testLoadPostgres_buildsJdbcOptionsFromHostPort", json, actual);
         Assertions.assertThat(actual).isEqualTo(expected);
     }
 
@@ -94,6 +98,7 @@ class LoadClauseTest {
 
         String actual = PySparkChainGenerator.generate(json);
 
+        printTestInfo("testLoadPostgres_respectsExplicitUrl", json, actual);
         Assertions.assertThat(actual)
                 .contains(".option(\"url\", \"jdbc:postgresql://external-host:9999/custom\")")
                 .doesNotContain("should-not-appear")
@@ -121,6 +126,7 @@ class LoadClauseTest {
 
         String actual = PySparkChainGenerator.generate(json);
 
+        printTestInfo("testLoadPostgres_includesCustomOptions", json, actual);
         Assertions.assertThat(actual)
                 .contains(".option(\"stringtype\", \"unspecified\")")
                 .contains(".option(\"fetchsize\", \"1000\")");
