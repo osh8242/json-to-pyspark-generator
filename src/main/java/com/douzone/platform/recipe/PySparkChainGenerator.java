@@ -12,21 +12,8 @@ import java.util.Set;
 
 public class PySparkChainGenerator {
 
-    @Getter
-    public static class ChainBuildResult {
-        private final String baseExpression;
-        private final String chain;
-
-        public ChainBuildResult(String baseExpression, String chain) {
-            this.baseExpression = baseExpression;
-            this.chain = chain;
-        }
-
-    }
-
     private final StepBuilder stepBuilder;
     private final ObjectMapper om = new ObjectMapper();
-
     // 생성자에서 StepBuilder를 초기화하며, 재귀 호출을 위해 자기 자신의 참조를 넘겨줍니다.
     public PySparkChainGenerator() {
         this.stepBuilder = new StepBuilder(this);
@@ -38,6 +25,23 @@ public class PySparkChainGenerator {
     public static String generate(String json) throws Exception {
         PySparkChainGenerator generator = new PySparkChainGenerator();
         return generator.generatePySparkCode(json);
+    }
+
+    /**
+     * JSON 파라미터에서 테이블 목록을 추출합니다.
+     * - input 필드와 join step의 right 테이블(문자열 또는 sub-JSON input)을 재귀적으로 수집.
+     * - 중복 제거된 Set으로 반환.
+     *
+     * @param json JSON 문자열
+     * @return 테이블 이름들의 Set (예: {"df", "orders_df", "users_df"})
+     * @throws Exception JSON 파싱 또는 처리 오류 시
+     */
+    public static Set<String> extractTables(String json) throws Exception {
+        PySparkChainGenerator generator = new PySparkChainGenerator();
+        JsonNode root = generator.om.readTree(json);
+        Set<String> tables = new HashSet<>();
+        generator.collectTables(root, tables);
+        return tables;
     }
 
     /**
@@ -251,23 +255,6 @@ public class PySparkChainGenerator {
     }
 
     /**
-     * JSON 파라미터에서 테이블 목록을 추출합니다.
-     * - input 필드와 join step의 right 테이블(문자열 또는 sub-JSON input)을 재귀적으로 수집.
-     * - 중복 제거된 Set으로 반환.
-     *
-     * @param json JSON 문자열
-     * @return 테이블 이름들의 Set (예: {"df", "orders_df", "users_df"})
-     * @throws Exception JSON 파싱 또는 처리 오류 시
-     */
-    public static Set<String> extractTables(String json) throws Exception {
-        PySparkChainGenerator generator = new PySparkChainGenerator();
-        JsonNode root = generator.om.readTree(json);
-        Set<String> tables = new HashSet<>();
-        generator.collectTables(root, tables);
-        return tables;
-    }
-
-    /**
      * 인스턴스 메서드로 JSON 노드에서 테이블을 재귀적으로 수집합니다.
      * - 외부 호출은 static extractTables 사용 권장.
      */
@@ -285,8 +272,9 @@ public class PySparkChainGenerator {
         if (steps != null) {
             for (JsonNode step : steps) {
                 String opName = StringUtil.getText(step, "step", null);
-                if ("join".equals(opName)) {
-                    // join step: right 처리
+                if ("load".equals(opName)) {
+                    collectLoadTables(step, tables);
+                } else if ("join".equals(opName)) {                    // join step: right 처리
                     JsonNode rightNode = step.get("right");
                     if (rightNode != null && !rightNode.isNull()) {
                         if (rightNode.isTextual()) {
@@ -326,6 +314,73 @@ public class PySparkChainGenerator {
             sb.append("  ").append(line).append("\n");
         }
         return sb.toString();
+    }
+
+    private void collectLoadTables(JsonNode step, Set<String> tables) {
+        String source = StringUtil.getText(step, "source", null);
+        if (source == null) {
+            String table = StringUtil.getText(step, "table", null);
+            if (table != null && !table.isEmpty()) {
+                tables.add(table);
+            }
+            return;
+        }
+
+        switch (source.toLowerCase()) {
+            case "iceberg":
+                String catalog = StringUtil.getText(step, "catalog", null);
+                String database = StringUtil.getText(step, "database", null);
+                String table = StringUtil.getText(step, "table", null);
+                if (table != null && !table.isEmpty()) {
+                    StringBuilder identifier = new StringBuilder();
+                    if (catalog != null && !catalog.isEmpty()) {
+                        identifier.append(catalog).append('.');
+                    }
+                    if (database != null && !database.isEmpty()) {
+                        identifier.append(database).append('.');
+                    }
+                    identifier.append(table);
+                    tables.add(identifier.toString());
+                }
+                break;
+            case "postgres":
+            case "postgresql":
+                String jdbcTable = StringUtil.getText(step, "table", null);
+                if (jdbcTable != null && !jdbcTable.isEmpty()) {
+                    tables.add(jdbcTable);
+                }
+                JsonNode options = step.get("options");
+                if (options != null && options.isObject()) {
+                    if (options.hasNonNull("dbtable")) {
+                        tables.add(options.get("dbtable").asText());
+                    }
+                    if (options.hasNonNull("table")) {
+                        tables.add(options.get("table").asText());
+                    }
+                    if (options.hasNonNull("query")) {
+                        tables.add(options.get("query").asText());
+                    }
+                }
+                break;
+            default:
+                String generic = StringUtil.getText(step, "table", null);
+                if (generic != null && !generic.isEmpty()) {
+                    tables.add(generic);
+                }
+                break;
+        }
+    }
+
+    @Getter
+    public static class ChainBuildResult {
+        private final String baseExpression;
+        private final String chain;
+
+        public ChainBuildResult(String baseExpression, String chain) {
+            this.baseExpression = baseExpression;
+            this.chain = chain;
+        }
+
     }
 
 }

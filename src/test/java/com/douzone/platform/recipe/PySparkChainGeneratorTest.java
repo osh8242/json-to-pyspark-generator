@@ -507,5 +507,51 @@ public class PySparkChainGeneratorTest {
         assertEquals(expected, actual);
     }
 
+    @Test
+    @DisplayName("extractTables - load(iceberg) 파이프라인")
+    public void testExtractTables_loadIceberg_containsFullyQualifiedTable() throws Exception {
+        String json = "{\n" +
+                "  \"steps\": [\n" +
+                "    {\n" +
+                "      \"step\": \"load\",\n" +
+                "      \"source\": \"iceberg\",\n" +
+                "      \"catalog\": \"hadoop\",\n" +
+                "      \"database\": \"curated\",\n" +
+                "      \"table\": \"patients\"\n" +
+                "    }\n" +
+                "  ]\n" +
+                "}";
+
+        Set<String> tables = PySparkChainGenerator.extractTables(json);
+
+        TestUtil.printTestInfo("extractTables - load(iceberg) 파이프라인", json, String.join(", ", tables));
+        Assertions.assertThat(tables)
+                .contains("df", "hadoop.curated.patients");
+    }
+
+    @Test
+    @DisplayName("extractTables - load(postgres) 파이프라인")
+    public void testExtractTables_loadPostgres_containsDeclaredTables() throws Exception {
+        String json = "{\n" +
+                "  \"steps\": [\n" +
+                "    {\n" +
+                "      \"step\": \"load\",\n" +
+                "      \"source\": \"postgres\",\n" +
+                "      \"table\": \"public.patient\",\n" +
+                "      \"options\": {\n" +
+                "        \"dbtable\": \"staging.patient_snapshot\"\n" +
+                "      }\n" +
+                "    }\n" +
+                "  ]\n" +
+                "}";
+
+        Set<String> tables = PySparkChainGenerator.extractTables(json);
+
+        TestUtil.printTestInfo("extractTables - load(postgres) 파이프라인", json, String.join(", ", tables));
+        Assertions.assertThat(tables)
+                .contains("df", "public.patient", "staging.patient_snapshot");
+    }
+
+
 }
 

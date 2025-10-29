@@ -18,8 +18,26 @@ public class StringUtil {
 
     public static String pyString(String s) {
         if (s == null) return "None";
-        String esc = s.replace("\\", "\\\\").replace("\"", "\\\"");
-        return "\"" + esc + "\"";
+        StringBuilder sb = new StringBuilder(s.length() + 10);
+        for (int i = 0; i < s.length(); i++) {
+            char c = s.charAt(i);
+            switch (c) {
+                case '\\': sb.append("\\\\"); break;
+                case '"': sb.append("\\\""); break;
+                case '\n': sb.append("\\n"); break;
+                case '\r': sb.append("\\r"); break;
+                case '\t': sb.append("\\t"); break;
+                case '\b': sb.append("\\b"); break;
+                case '\f': sb.append("\\f"); break;
+                default:
+                    if (c < 0x20 || c == 0x7f) {
+                        sb.append(String.format("\\u%04x", (int) c));
+                    } else {
+                        sb.append(c);
+                    }
+            }
+        }
+        return "\"" + sb + "\"";
     }
 
     public static String pyBool(boolean value) {
