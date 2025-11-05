@@ -10,10 +10,10 @@ import com.fasterxml.jackson.databind.JsonNode;
  * 2025. 9. 17.        osh8242       최초 생성
  */
 public class StringUtil {
-    public static String getText(JsonNode n, String field, String def) {
-        if (n == null) return def;
+    public static String getText(JsonNode n, String field, String defaultValue) {
+        if (n == null) return defaultValue;
         JsonNode v = n.get(field);
-        return v != null && !v.isNull() ? v.asText() : def;
+        return v != null && !v.isNull() ? v.asText() : defaultValue;
     }
 
     public static String pyString(String s) {

@@ -27,6 +27,11 @@ public class PySparkChainGenerator {
         return generator.generatePySparkCode(json);
     }
 
+    public static String generate(JsonNode json) throws Exception {
+        PySparkChainGenerator generator = new PySparkChainGenerator();
+        return generator.generatePySparkCode(json);
+    }
+
     /**
      * JSON 파라미터에서 테이블 목록을 추출합니다.
      * - input 필드와 join step의 right 테이블(문자열 또는 sub-JSON input)을 재귀적으로 수집.
