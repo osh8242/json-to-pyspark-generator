@@ -35,6 +35,26 @@ public class ToJsonStepTest {
     }
 
     @Test
+    @DisplayName("toJSON: 기본 체인 생성 - take 옵션")
+    void testToJsonStepGeneratesChainWithTake() throws Exception {
+        String json = "{\n"
+                + "  \"input\": \"df\",\n"
+                + "  \"steps\": [\n"
+                + "    { \"step\": \"toJSON\", \"take\": 50 }\n"
+                + "  ]\n"
+                + "}";
+
+        String expected = buildFullScript(
+                "  .toJSON()\n"
+                        + "  .take(50)\n"
+        );
+        String actual = PySparkChainGenerator.generate(json);
+
+        printTestInfo("testToJsonStepGeneratesChain", json, actual);
+        assertEquals(expected, actual);
+    }
+
+    @Test
     @DisplayName("toJSON: take 옵션을 사용하여 결과 제한")
     void testToJsonStepWithTakeOption() throws Exception {
         String json = "{\n"
