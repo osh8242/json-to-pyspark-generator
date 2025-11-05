@@ -315,6 +315,21 @@ public class StepBuilder {
         return "  .orderBy(" + String.join(", ", parts) + ")\n";
     }
 
+    public String buildToJson(JsonNode node) {
+        StringBuilder sb = new StringBuilder("  .toJSON()\n");
+        if (node != null && node.has("take") && !node.get("take").isNull()) {
+            JsonNode takeNode = node.get("take");
+            String takeValue;
+            if (takeNode.isIntegralNumber()) {
+                takeValue = String.valueOf(takeNode.longValue());
+            } else {
+                takeValue = takeNode.asText();
+            }
+            sb.append("  .take(").append(takeValue).append(")\n");
+        }
+        return sb.toString();
+    }
+
     public String buildLimit(JsonNode node) {
         int n = node.get("n").asInt();
         return "  .limit(" + n + ")\n";

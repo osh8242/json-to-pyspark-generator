@@ -127,6 +127,10 @@ public class PySparkChainGenerator {
                         chainBuilder.append(stepBuilder.buildOrderBy(step));
                         materialized = false;
                         break;
+                    case "toJSON":
+                        chainBuilder.append(stepBuilder.buildToJson(step));
+                        materialized = false;
+                        break;
                     case "limit":
                         chainBuilder.append(stepBuilder.buildLimit(step));
                         materialized = false;
@@ -222,6 +226,9 @@ public class PySparkChainGenerator {
                 case "orderBy":
                 case "sort":
                     sb.append(stepBuilder.buildOrderBy(step));
+                    break;
+                case "toJSON":
+                    sb.append(stepBuilder.buildToJson(step));
                     break;
                 case "limit":
                     sb.append(stepBuilder.buildLimit(step));
