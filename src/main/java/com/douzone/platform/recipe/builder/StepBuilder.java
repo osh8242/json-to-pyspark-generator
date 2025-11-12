@@ -24,6 +24,79 @@ public class StepBuilder {
         this.mainGenerator = mainGenerator;
     }
 
+    public String buildNodeStatement(JsonNode node) throws Exception {
+        if (node == null || node.isNull()) {
+            return "";
+        }
+
+        String opName = StringUtil.getText(node, "node", null);
+        if (opName == null) {
+            opName = StringUtil.getText(node, "step", null);
+        }
+        if (opName == null) {
+            return "";
+        }
+
+        String input = StringUtil.getText(node, "input", null);
+        String output = StringUtil.getText(node, "output", null);
+
+        switch (opName) {
+            case "load":
+                String loadExpr = buildLoad(node);
+                if (loadExpr == null || loadExpr.isEmpty()) {
+                    return "";
+                }
+                return formatDirectAssignment(output, loadExpr);
+            case "select":
+                return formatTransformation(input, output, buildSelect(node));
+            case "withColumn":
+                return formatTransformation(input, output, buildWithColumn(node));
+            case "withColumns":
+                return formatTransformation(input, output, buildWithColumns(node));
+            case "filter":
+            case "where":
+                return formatTransformation(input, output, buildFilter(node));
+            case "join":
+                return formatTransformation(input, output, buildJoin(node));
+            case "groupBy":
+                return formatTransformation(input, output, buildGroupBy(node));
+            case "agg":
+                return formatTransformation(input, output, buildAgg(node));
+            case "orderBy":
+            case "sort":
+                return formatTransformation(input, output, buildOrderBy(node));
+            case "toJSON":
+                return formatTransformation(input, output, buildToJson(node));
+            case "limit":
+                return formatTransformation(input, output, buildLimit(node));
+            case "distinct":
+                return formatTransformation(input, output, "  .distinct()\n");
+            case "dropDuplicates":
+                return formatTransformation(input, output, buildDropDuplicates(node));
+            case "repartition":
+                return formatTransformation(input, output, buildRepartition(node));
+            case "coalesce":
+                return formatTransformation(input, output, buildCoalesce(node));
+            case "sample":
+                return formatTransformation(input, output, buildSample(node));
+            case "drop":
+                return formatTransformation(input, output, buildDrop(node));
+            case "withColumnRenamed":
+                return formatTransformation(input, output, buildWithColumnRenamed(node));
+            case "show":
+                String target = input;
+                if (target == null || target.isEmpty()) {
+                    target = output;
+                }
+                if (target == null || target.isEmpty()) {
+                    target = "df";
+                }
+                return buildShowAction(node, target);
+            default:
+                return formatTransformation(input, output, buildDefaultStep(opName, node));
+        }
+    }
+
     public String buildLoad(JsonNode node) {
         if (node == null) {
             return null;
@@ -489,6 +562,85 @@ public class StepBuilder {
         }
 
         return dfName + ".show(" + args + ")\n";
+    }
+
+    private String formatTransformation(String input, String output, String fragment) {
+        String sanitized = sanitizeChainFragment(fragment);
+        if (sanitized.isEmpty()) {
+            return "";
+        }
+
+        String base = (input == null || input.isEmpty()) ? "df" : input;
+        String target = (output == null || output.isEmpty()) ? base : output;
+
+        String[] lines = sanitized.split("\\r?\\n");
+        StringBuilder sb = new StringBuilder();
+        sb.append(target).append(" = ").append(base);
+        for (int i = 0; i < lines.length; i++) {
+            String line = lines[i];
+            if (line.isEmpty()) {
+                continue;
+            }
+            if (i == 0) {
+                sb.append(line);
+            } else {
+                if (line.startsWith(".")) {
+                    sb.append("\n    ").append(line);
+                } else {
+                    sb.append("\n").append(line);
+                }
+            }
+        }
+        sb.append("\n");
+        return sb.toString();
+    }
+
+    private String formatDirectAssignment(String output, String expression) {
+        if (expression == null || expression.isEmpty()) {
+            return "";
+        }
+
+        String target = (output == null || output.isEmpty()) ? "df" : output;
+        String trimmed = expression.replaceAll("[\\s\\r\\n]+$", "");
+        if (trimmed.isEmpty()) {
+            return "";
+        }
+
+        String[] lines = trimmed.split("\\r?\\n");
+        StringBuilder sb = new StringBuilder();
+        sb.append(target).append(" = ").append(lines[0]);
+        for (int i = 1; i < lines.length; i++) {
+            sb.append("\n    ").append(lines[i]);
+        }
+        sb.append("\n");
+        return sb.toString();
+    }
+
+    private String sanitizeChainFragment(String fragment) {
+        if (fragment == null) {
+            return "";
+        }
+        String trimmed = fragment.replaceAll("[\\s\\r\\n]+$", "");
+        if (trimmed.isEmpty()) {
+            return "";
+        }
+
+        String[] lines = trimmed.split("\\r?\\n");
+        List<String> sanitized = new ArrayList<>();
+        for (String line : lines) {
+            if (line.trim().isEmpty()) {
+                continue;
+            }
+            int dotIndex = line.indexOf('.');
+            if (dotIndex >= 0) {
+                String prefix = line.substring(0, dotIndex);
+                if (prefix.trim().isEmpty()) {
+                    line = line.substring(dotIndex);
+                }
+            }
+            sanitized.add(line);
+        }
+        return String.join("\n", sanitized);
     }
 
     private String indentLines(String expr, String indent) {

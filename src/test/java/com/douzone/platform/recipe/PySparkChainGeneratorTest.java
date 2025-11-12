@@ -24,6 +24,56 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 public class PySparkChainGeneratorTest {
 
     @Test
+    @DisplayName("node 기반 파이프라인은 단계별 코드 라인을 생성")
+    void testNodeBasedPipelineProducesStepAssignments() throws Exception {
+        String json = "{\n"
+                + "  \"steps\": [\n"
+                + "    {\n"
+                + "      \"input\": \"df\",\n"
+                + "      \"node\": \"filter\",\n"
+                + "      \"condition\": {\n"
+                + "        \"type\": \"op\",\n"
+                + "        \"op\": \"and\",\n"
+                + "        \"left\": {\n"
+                + "          \"type\": \"op\",\n"
+                + "          \"op\": \">=\",\n"
+                + "          \"left\": {\"type\": \"col\", \"name\": \"age\"},\n"
+                + "          \"right\": {\"type\": \"lit\", \"value\": 65}\n"
+                + "        },\n"
+                + "        \"right\": {\n"
+                + "          \"type\": \"op\",\n"
+                + "          \"op\": \"=\",\n"
+                + "          \"left\": {\"type\": \"col\", \"name\": \"gender\"},\n"
+                + "          \"right\": {\"type\": \"lit\", \"value\": \"F\"}\n"
+                + "        }\n"
+                + "      },\n"
+                + "      \"output\": \"filter1\"\n"
+                + "    },\n"
+                + "    { \"input\": \"filter1\", \"node\": \"groupBy\", \"keys\": [ { \"type\": \"col\", \"name\": \"disease_code\" } ], \"output\": \"groupby1\" },\n"
+                + "    { \"input\": \"groupby1\", \"node\": \"agg\", \"aggs\": [ { \"expr\": { \"type\": \"func\", \"name\": \"count\", \"args\": [ { \"type\": \"col\", \"name\": \"*\" } ] }, \"alias\": \"cnt\" } ], \"output\": \"agg1\" },\n"
+                + "    { \"input\": \"agg1\", \"node\": \"orderBy\", \"keys\": [ { \"expr\": { \"type\": \"col\", \"name\": \"cnt\" }, \"asc\": false } ], \"output\": \"orderby1\" },\n"
+                + "    { \"input\": \"orderby1\", \"node\": \"limit\", \"n\": 100, \"output\": \"limit1\" },\n"
+                + "    { \"input\": \"filter1\", \"node\": \"groupBy\", \"keys\": [ { \"type\": \"col\", \"name\": \"gender\" } ], \"output\": \"groupby2\" }\n"
+                + "  ]\n"
+                + "}";
+
+        String out = PySparkChainGenerator.generate(json);
+
+        String expected = String.join("\n",
+                "filter1 = df.filter(((F.col(\"age\") >= F.lit(65)) & (F.col(\"gender\") == F.lit(\"F\"))))",
+                "groupby1 = filter1.groupBy(F.col(\"disease_code\"))",
+                "agg1 = groupby1.agg(",
+                "      F.count(F.col(\"*\")).alias(\"cnt\")",
+                "  )",
+                "orderby1 = agg1.orderBy(F.col(\"cnt\").desc())",
+                "limit1 = orderby1.limit(100)",
+                "groupby2 = filter1.groupBy(F.col(\"gender\"))",
+                "");
+
+        Assertions.assertThat(out).isEqualTo(expected);
+    }
+
+    @Test
     public void testBasicPipeline_containsExpectedFragments() throws Exception {
         String json = "{\n" +
                 "  \"input\": \"df\",\n" +
