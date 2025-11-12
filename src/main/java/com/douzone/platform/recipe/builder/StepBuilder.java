@@ -31,9 +31,6 @@ public class StepBuilder {
 
         String opName = StringUtil.getText(node, "node", null);
         if (opName == null) {
-            opName = StringUtil.getText(node, "step", null);
-        }
-        if (opName == null) {
             return "";
         }
 
