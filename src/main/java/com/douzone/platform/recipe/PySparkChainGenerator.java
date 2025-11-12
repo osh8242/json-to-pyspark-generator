@@ -51,7 +51,7 @@ public class PySparkChainGenerator {
 
     /**
      * 실제 코드 생성을 담당하는 인스턴스 메서드입니다.
-     * PySpark 스크립트의 전체적인 틀(import, out = ...)을 생성합니다.
+     * PySpark 스크립트의 전체적인 틀을 생성합니다.
      */
     public String generatePySparkCode(String json) throws Exception {
         JsonNode root = om.readTree(json);
