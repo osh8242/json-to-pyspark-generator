@@ -7,6 +7,7 @@ import org.junit.jupiter.api.Test;
 import static com.douzone.platform.recipe.util.TestUtil.buildFullScript;
 import static com.douzone.platform.recipe.util.TestUtil.printTestInfo;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static com.douzone.platform.recipe.util.TestUtil.toNodeJson;
 
 /**
  * description    :
@@ -19,7 +20,7 @@ public class FilterClauseTest {
     @Test
     @DisplayName("Filter: 단일 조건(>=) 테스트")
     void testFilterWithSingleCondition() throws Exception {
-        String json = "{\n"
+        String json = toNodeJson("{\n"
                 + "  \"input\": \"df\",\n"
                 + "  \"steps\": [\n"
                 + "    {\n"
@@ -45,7 +46,7 @@ public class FilterClauseTest {
     @Test
     @DisplayName("Filter: AND 연산자로 두 조건 결합")
     void testFilterWithAnd() throws Exception {
-        String json = "{\n"
+        String json = toNodeJson("{\n"
                 + "  \"input\": \"df\",\n"
                 + "  \"steps\": [\n"
                 + "    {\n"
@@ -70,7 +71,7 @@ public class FilterClauseTest {
     @Test
     @DisplayName("Filter: OR 연산자와 괄호를 포함한 복합 조건")
     void testFilterWithOrAndParentheses() throws Exception {
-        String json = "{\n"
+        String json = toNodeJson("{\n"
                 + "  \"input\": \"df\",\n"
                 + "  \"steps\": [\n"
                 + "    {\n"
@@ -100,7 +101,7 @@ public class FilterClauseTest {
     @Test
     @DisplayName("Filter: BETWEEN 연산자 테스트")
     void testFilterWithBetween() throws Exception {
-        String json = "{\n"
+        String json = toNodeJson("{\n"
                 + "  \"input\": \"df\",\n"
                 + "  \"steps\": [\n"
                 + "    {\n"
@@ -126,7 +127,7 @@ public class FilterClauseTest {
     @Test
     @DisplayName("Filter: NOT BETWEEN 연산자 테스트")
     void testFilterWithNotBetween() throws Exception {
-        String json = "{\n"
+        String json = toNodeJson("{\n"
                 + "  \"input\": \"df\",\n"
                 + "  \"steps\": [\n"
                 + "    {\n"
@@ -153,7 +154,7 @@ public class FilterClauseTest {
     @Test
     @DisplayName("Filter: isNull 함수 테스트")
     void testFilterWithFuncIsnull() throws Exception {
-        String json = "{\n"
+        String json = toNodeJson("{\n"
                 + "  \"input\": \"df\",\n"
                 + "  \"steps\": [\n"
                 + "    {\n"
@@ -178,7 +179,7 @@ public class FilterClauseTest {
     @Test
     @DisplayName("Filter: NOT 연산자 테스트")
     void testFilterWithNot() throws Exception {
-        String json = "{\n"
+        String json = toNodeJson("{\n"
                 + "  \"input\": \"df\",\n"
                 + "  \"steps\": [\n"
                 + "    {\n"
@@ -208,7 +209,7 @@ public class FilterClauseTest {
     @Test
     @DisplayName("Filter: CASE WHEN 결과를 조건으로 사용")
     void testFilterWithCaseWhen() throws Exception {
-        String json = "{\n"
+        String json = toNodeJson("{\n"
                 + "  \"input\": \"df\",\n"
                 + "  \"steps\": [\n"
                 + "    {\n"
@@ -243,7 +244,7 @@ public class FilterClauseTest {
     @Test
     @DisplayName("Filter: 컬럼에 isNull 테스트")
     void testFilterWithColumnIsNull() throws Exception {
-        String json = "{\n"
+        String json = toNodeJson("{\n"
                 + "  \"input\": \"df\",\n"
                 + "  \"steps\": [\n"
                 + "    {\n"
@@ -267,7 +268,7 @@ public class FilterClauseTest {
     @Test
     @DisplayName("Filter: isNotNull 테스트")
     void testFilterWithIsNotNull() throws Exception {
-        String json = "{\n"
+        String json = toNodeJson("{\n"
                 + "  \"input\": \"df\",\n"
                 + "  \"steps\": [\n"
                 + "    {\n"
@@ -291,7 +292,7 @@ public class FilterClauseTest {
     @Test
     @DisplayName("Filter: isin 테스트")
     void testFilterWithIsin() throws Exception {
-        String json = "{\n"
+        String json = toNodeJson("{\n"
                 + "  \"input\": \"df\",\n"
                 + "  \"steps\": [\n"
                 + "    {\n"
@@ -320,7 +321,7 @@ public class FilterClauseTest {
     @Test
     @DisplayName("Filter: NOT isin 테스트")
     void testFilterWithNotIsin() throws Exception {
-        String json = "{\n"
+        String json = toNodeJson("{\n"
                 + "  \"input\": \"df\",\n"
                 + "  \"steps\": [\n"
                 + "    {\n"
@@ -349,7 +350,7 @@ public class FilterClauseTest {
     @Test
     @DisplayName("Filter: like 테스트")
     void testFilterWithLike() throws Exception {
-        String json = "{\n"
+        String json = toNodeJson("{\n"
                 + "  \"input\": \"df\",\n"
                 + "  \"steps\": [\n"
                 + "    {\n"
@@ -374,7 +375,7 @@ public class FilterClauseTest {
     @Test
     @DisplayName("Filter: NOT like 테스트")
     void testFilterWithNotLike() throws Exception {
-        String json = "{\n"
+        String json = toNodeJson("{\n"
                 + "  \"input\": \"df\",\n"
                 + "  \"steps\": [\n"
                 + "    {\n"
@@ -400,7 +401,7 @@ public class FilterClauseTest {
     @Test
     @DisplayName("Filter: like에서 리터럴 '10%' 문자열 검색")
     void testFilterWithLikeLiteralPercent() throws Exception {
-        String json = "{\n"
+        String json = toNodeJson("{\n"
                 + "  \"input\": \"df\",\n"
                 + "  \"steps\": [\n"
                 + "    {\n"
@@ -425,7 +426,7 @@ public class FilterClauseTest {
     @Test
     @DisplayName("Filter: like에서 리터럴 '_' 문자 검색")
     void testFilterWithLikeLiteralUnderscore() throws Exception {
-        String json = "{\n"
+        String json = toNodeJson("{\n"
                 + "  \"input\": \"df\",\n"
                 + "  \"steps\": [\n"
                 + "    {\n"

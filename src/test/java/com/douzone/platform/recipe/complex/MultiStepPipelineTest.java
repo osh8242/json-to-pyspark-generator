@@ -7,6 +7,7 @@ import org.junit.jupiter.api.Test;
 import static com.douzone.platform.recipe.util.TestUtil.buildFullScript;
 import static com.douzone.platform.recipe.util.TestUtil.printTestInfo;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static com.douzone.platform.recipe.util.TestUtil.toNodeJson;
 
 /**
  * description    :
@@ -20,7 +21,7 @@ public class MultiStepPipelineTest {
     @Test
     @DisplayName("다단계 파이프라인 1: Filter -> GroupBy -> Agg -> OrderBy -> Limit")
     void testFullEtlPipeline() throws Exception {
-        String json = "{\n"
+        String json = toNodeJson("{\n"
                 + "  \"input\": \"df\",\n"
                 + "  \"steps\": [\n"
                 + "    { \"step\": \"filter\", \"condition\": { \"type\": \"op\", \"op\": \"=\", \"left\": { \"type\": \"col\", \"name\": \"is_completed\" }, \"right\": { \"type\": \"lit\", \"value\": true } } },\n"
@@ -57,7 +58,7 @@ public class MultiStepPipelineTest {
     @Test
     @DisplayName("다단계 파이프라인 2: Join -> Select -> withColumn -> OrderBy")
     void testJoinAndTransformationPipeline() throws Exception {
-        String json = "{\n"
+        String json = toNodeJson("{\n"
                 + "  \"input\": \"df\",\n"
                 + "  \"steps\": [\n"
                 + "    {\n"
@@ -106,7 +107,7 @@ public class MultiStepPipelineTest {
     @Test
     @DisplayName("다단계 파이프라인 3: 재귀 조인(서브쿼리) 포함")
     void testRecursiveJoinPipeline() throws Exception {
-        String json = "{\n"
+        String json = toNodeJson("{\n"
                 + "  \"input\": \"df\",\n"
                 + "  \"steps\": [\n"
                 + "    {\n"

@@ -12,6 +12,7 @@ import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static com.douzone.platform.recipe.util.TestUtil.toNodeJson;
 
 /**
  * description    :
@@ -33,7 +34,7 @@ public class PySparkChainGeneratorTest {
     @Test
     @DisplayName("node 기반 파이프라인은 단계별 코드 라인을 생성")
     void testNodeBasedPipelineProducesStepAssignments() throws Exception {
-        String json = "{\n"
+        String json = toNodeJson("{\n"
                 + "  \"steps\": [\n"
                 + "    {\n"
                 + "      \"input\": \"df\",\n"
@@ -82,7 +83,7 @@ public class PySparkChainGeneratorTest {
 
     @Test
     public void testBasicPipeline_containsExpectedFragments() throws Exception {
-        String json = "{\n"
+        String json = toNodeJson("{\n"
                 + "  \"steps\": [\n"
                 + "    {\n"
                 + "      \"input\": \"df\",\n"
@@ -129,7 +130,7 @@ public class PySparkChainGeneratorTest {
     @Test
     @DisplayName("withColumn, withColumns 테스트")
     public void testWithColumn_and_withColumns_containsExpectedFragments() throws Exception {
-        String json = "{\n"
+        String json = toNodeJson("{\n"
                 + "  \"steps\": [\n"
                 + "    {\n"
                 + "      \"input\": \"df\",\n"
@@ -175,7 +176,7 @@ public class PySparkChainGeneratorTest {
     @Test
     @DisplayName("알 수 없는 node는 기본 메서드 체인으로 처리")
     void testUnknownStepFallsBackToDefaultBuilder() throws Exception {
-        String json = "{\n"
+        String json = toNodeJson("{\n"
                 + "  \"steps\": [\n"
                 + "    { \"input\": \"df\", \"node\": \"cache\", \"output\": \"cached\" },\n"
                 + "    { \"input\": \"cached\", \"node\": \"persist\", \"args\": [ { \"type\": \"lit\", \"value\": \"MEMORY_ONLY\" } ], \"output\": \"persisted\" },\n"
@@ -193,7 +194,7 @@ public class PySparkChainGeneratorTest {
     @Test
     @DisplayName("join 테스트")
     public void testJoin_withAliases_containsExpectedFragments() throws Exception {
-        String json = "{\n"
+        String json = toNodeJson("{\n"
                 + "  \"steps\": [\n"
                 + "    {\n"
                 + "      \"input\": \"df\",\n"
@@ -258,7 +259,7 @@ public class PySparkChainGeneratorTest {
     @Test
     @DisplayName("filter - and 조건 테스트")
     public void testPatientInfoFilter_simpleAndCondition_printsAndAsserts() throws Exception {
-        String json = "{\n"
+        String json = toNodeJson("{\n"
                 + "  \"steps\": [\n"
                 + "    {\n"
                 + "      \"input\": \"spark.table('patientinfo')\",\n"
@@ -299,7 +300,7 @@ public class PySparkChainGeneratorTest {
     @Test
     @DisplayName("groupBy - agg 테스트")
     public void testGroupBy_patientinfo_printsAndAsserts() throws Exception {
-        String json = "{\n"
+        String json = toNodeJson("{\n"
                 + "  \"steps\": [\n"
                 + "    {\n"
                 + "      \"input\": \"spark.table('patientinfo')\",\n"
@@ -338,14 +339,14 @@ public class PySparkChainGeneratorTest {
         assertTrue(code.contains(".alias(\"avg_age\")"), "avg alias 'avg_age' 포함되어야 함");
 
         Assertions.assertThat(FormatUtil.normalizeWhitespace(code)).isEqualTo(
-                "grouped = spark.table('patientinfo').groupBy(F.col(\"disease_code\")) aggregated = grouped.agg( F.count(F.lit(\"*\")).alias(\"cnt\"), F.avg(F.col(\"age\")).alias(\"avg_age\") )"
+                "df = spark.table('patientinfo').groupBy(F.col(\"disease_code\")) df = df.agg( F.count(F.lit(\"*\")).alias(\"cnt\"), F.avg(F.col(\"age\")).alias(\"avg_age\") )"
         );
     }
 
     @Test
     @DisplayName("filter - between 테스트")
     public void testFilter_betweenNode_printsAndAsserts() throws Exception {
-        String json = "{\n"
+        String json = toNodeJson("{\n"
                 + "  \"steps\": [\n"
                 + "    {\n"
                 + "      \"input\": \"spark.table('patientinfo')\",\n"
@@ -375,7 +376,7 @@ public class PySparkChainGeneratorTest {
     @Test
     @DisplayName("filter - not between 테스트")
     public void testFilter_notBetweenNode_printsAndAsserts() throws Exception {
-        String json = "{\n"
+        String json = toNodeJson("{\n"
                 + "  \"steps\": [\n"
                 + "    {\n"
                 + "      \"input\": \"spark.table('patientinfo')\",\n"
@@ -412,7 +413,7 @@ public class PySparkChainGeneratorTest {
     @Test
     @DisplayName("select - case when 테스트")
     public void testSelect_caseWhen_printsAndAsserts() throws Exception {
-        String json = "{\n"
+        String json = toNodeJson("{\n"
                 + "  \"steps\": [\n"
                 + "    {\n"
                 + "      \"input\": \"spark.table('patientinfo')\",\n"
@@ -488,7 +489,7 @@ public class PySparkChainGeneratorTest {
     @Test
     @DisplayName("테이블 추출: 단순 input + join")
     void testSimpleTableExtraction() throws Exception {
-        String json = "{\n"
+        String json = toNodeJson("{\n"
                 + "  \"input\": \"main_df\",\n"
                 + "  \"steps\": [\n"
                 + "    { \"input\": \"main_df\", \"node\": \"join\", \"right\": \"orders_df\", \"output\": \"joined\" }\n"
@@ -505,7 +506,7 @@ public class PySparkChainGeneratorTest {
     @Test
     @DisplayName("테이블 추출: 재귀적 join (중첩 sub-JSON)")
     void testRecursiveTableExtraction() throws Exception {
-        String json = "{\n"
+        String json = toNodeJson("{\n"
                 + "  \"input\": \"users_df\",\n"
                 + "  \"steps\": [\n"
                 + "    { \"input\": \"users_df\", \"node\": \"join\", \"right\": { \"input\": \"profiles_df\", \"steps\": [ { \"input\": \"profiles_df\", \"node\": \"join\", \"right\": \"addresses_df\", \"output\": \"profiles_joined\" } ], \"output\": \"profiles_with_addresses\" }, \"output\": \"users_joined\" }\n"
@@ -522,7 +523,7 @@ public class PySparkChainGeneratorTest {
     @Test
     @DisplayName("테이블 추출: 기본 input만 (join 없음)")
     void testInputOnlyExtraction() throws Exception {
-        String json = "{\n"
+        String json = toNodeJson("{\n"
                 + "  \"input\": \"df\",\n"
                 + "  \"steps\": [ { \"input\": \"df\", \"node\": \"filter\", \"condition\": { \"type\": \"op\", \"op\": \">\", \"left\": { \"type\": \"col\", \"name\": \"age\" }, \"right\": { \"type\": \"lit\", \"value\": 18 } }, \"output\": \"filtered\" } ]\n"
                 + "}";
@@ -537,7 +538,7 @@ public class PySparkChainGeneratorTest {
     @Test
     @DisplayName("extractTables - load(iceberg) 파이프라인")
     public void testExtractTables_loadIceberg_containsFullyQualifiedTable() throws Exception {
-        String json = "{\n"
+        String json = toNodeJson("{\n"
                 + "  \"steps\": [\n"
                 + "    {\n"
                 + "      \"node\": \"load\",\n"
@@ -560,7 +561,7 @@ public class PySparkChainGeneratorTest {
     @Test
     @DisplayName("extractTables - load(postgres) 파이프라인")
     public void testExtractTables_loadPostgres_containsDeclaredTables() throws Exception {
-        String json = "{\n"
+        String json = toNodeJson("{\n"
                 + "  \"steps\": [\n"
                 + "    {\n"
                 + "      \"node\": \"load\",\n"

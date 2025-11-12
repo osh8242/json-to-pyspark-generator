@@ -7,6 +7,7 @@ import org.junit.jupiter.api.Test;
 import static com.douzone.platform.recipe.util.TestUtil.buildFullScript;
 import static com.douzone.platform.recipe.util.TestUtil.printTestInfo;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static com.douzone.platform.recipe.util.TestUtil.toNodeJson;
 
 /**
  * description    :
@@ -19,7 +20,7 @@ public class GroupbyClauseTest {
     @Test
     @DisplayName("GroupBy: 단일 컬럼으로 그룹화")
     void testGroupBySingleColumn() throws Exception {
-        String json = "{\n"
+        String json = toNodeJson("{\n"
                 + "  \"input\": \"df\",\n"
                 + "  \"steps\": [\n"
                 + "    {\n"
@@ -42,7 +43,7 @@ public class GroupbyClauseTest {
     @Test
     @DisplayName("GroupBy: 여러 컬럼으로 그룹화")
     void testGroupByMultipleColumns() throws Exception {
-        String json = "{\n"
+        String json = toNodeJson("{\n"
                 + "  \"input\": \"df\",\n"
                 + "  \"steps\": [\n"
                 + "    {\n"
@@ -66,7 +67,7 @@ public class GroupbyClauseTest {
     @Test
     @DisplayName("GroupBy: 함수 결과를 기준으로 그룹화")
     void testGroupByWithFunction() throws Exception {
-        String json = "{\n"
+        String json = toNodeJson("{\n"
                 + "  \"input\": \"df\",\n"
                 + "  \"steps\": [\n"
                 + "    {\n"
@@ -93,7 +94,7 @@ public class GroupbyClauseTest {
     @Test
     @DisplayName("GroupBy: 복합 표현식(연산 및 캐스팅)으로 그룹화 - 연령대별 그룹화")
     void testGroupByWithComplexExpression() throws Exception {
-        String json = "{\n"
+        String json = toNodeJson("{\n"
                 + "  \"input\": \"df\",\n"
                 + "  \"steps\": [\n"
                 + "    {\n"
@@ -125,7 +126,7 @@ public class GroupbyClauseTest {
     @Test
     @DisplayName("GroupBy: 전체 집계를 위한 빈 그룹화")
     void testGroupByForGlobalAggregation() throws Exception {
-        String json = "{\n"
+        String json = toNodeJson("{\n"
                 + "  \"input\": \"df\",\n"
                 + "  \"steps\": [\n"
                 + "    {\n"

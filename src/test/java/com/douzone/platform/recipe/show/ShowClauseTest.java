@@ -7,6 +7,7 @@ import org.junit.jupiter.api.Test;
 import static com.douzone.platform.recipe.util.TestUtil.buildFullScript;
 import static com.douzone.platform.recipe.util.TestUtil.printTestInfo;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static com.douzone.platform.recipe.util.TestUtil.toNodeJson;
 
 /**
  * description    : show() step 테스트
@@ -20,7 +21,7 @@ public class ShowClauseTest {
     @Test
     @DisplayName("Show: 기본 출력 (20행)")
     void testBasicShow() throws Exception {
-        String json = "{\n"
+        String json = toNodeJson("{\n"
                 + "  \"input\": \"df\",\n"
                 + "  \"steps\": [\n"
                 + "    { \"step\": \"show\" }\n"
@@ -37,7 +38,7 @@ public class ShowClauseTest {
     @Test
     @DisplayName("Show: 행 수와 옵션 지정 (5행, 전체 출력, 세로 형식)")
     void testShowWithOptions() throws Exception {
-        String json = "{\n"
+        String json = toNodeJson("{\n"
                 + "  \"input\": \"df\",\n"
                 + "  \"steps\": [\n"
                 + "    { \"step\": \"show\", \"n\": 5, \"truncate\": false, \"vertical\": true }\n"
@@ -54,7 +55,7 @@ public class ShowClauseTest {
     @Test
     @DisplayName("Show: truncate 길이 지정")
     void testShowWithTruncateLength() throws Exception {
-        String json = "{\n"
+        String json = toNodeJson("{\n"
                 + "  \"input\": \"df\",\n"
                 + "  \"steps\": [\n"
                 + "    { \"step\": \"show\", \"truncate\": 50 }\n"
@@ -71,7 +72,7 @@ public class ShowClauseTest {
     @Test
     @DisplayName("Show: 다단계 체인 끝에 show 적용")
     void testShowInMultiStepPipeline() throws Exception {
-        String json = "{\n"
+        String json = toNodeJson("{\n"
                 + "  \"input\": \"df\",\n"
                 + "  \"steps\": [\n"
                 + "    { \"step\": \"filter\", \"condition\": { \"type\": \"op\", \"op\": \">\", \"left\": { \"type\": \"col\", \"name\": \"salary\" }, \"right\": { \"type\": \"lit\", \"value\": 50000 } } },\n"
@@ -96,7 +97,7 @@ public class ShowClauseTest {
     @Test
     @DisplayName("Show: 다중 show 스텝 순서 보존")
     void testMultipleShowStepsPreserveOrder() throws Exception {
-        String json = "{\n"
+        String json = toNodeJson("{\n"
                 + "  \"input\": \"df\",\n"
                 + "  \"steps\": [\n"
                 + "    { \"step\": \"show\", \"n\": 3 },\n"
@@ -105,16 +106,11 @@ public class ShowClauseTest {
                 + "  ]\n"
                 + "}";
 
-        String expected = String.join("",
-                "result_df = (\n",
-                "  df\n",
-                ")\n",
-                "result_df.show(3)\n",
-                "result_df = (\n",
-                "  result_df\n",
-                "  .filter((F.col(\"status\") == F.lit(\"ACTIVE\")))\n",
-                ")\n",
-                "result_df.show(8, truncate=False)\n");
+        String expected = String.join("\n",
+                "df.show(3)",
+                "df = df.filter((F.col(\"status\") == F.lit(\"ACTIVE\")))",
+                "df.show(8, truncate=False)",
+                "");
         String actual = PySparkChainGenerator.generate(json);
 
         printTestInfo("testMultipleShowStepsPreserveOrder", json, actual);
@@ -124,7 +120,7 @@ public class ShowClauseTest {
     @Test
     @DisplayName("Show: 중간 show 가 체인을 분할하여 중간 결과를 출력")
     void testShowSplitsPipelineForIntermediateResults() throws Exception {
-        String json = "{\n"
+        String json = toNodeJson("{\n"
                 + "  \"input\": \"df\",\n"
                 + "  \"steps\": [\n"
                 + "    { \"step\": \"withColumn\", \"name\": \"flag\", \"expr\": { \"type\": \"lit\", \"value\": 1 } },\n"
@@ -133,16 +129,11 @@ public class ShowClauseTest {
                 + "  ]\n"
                 + "}";
 
-        String expected = String.join("",
-                "result_df = (\n",
-                "  df\n",
-                "  .withColumn(\"flag\", F.lit(1))\n",
-                ")\n",
-                "result_df.show(20)\n",
-                "result_df = (\n",
-                "  result_df\n",
-                "  .filter((F.col(\"age\") > F.lit(30)))\n",
-                ")\n");
+        String expected = String.join("\n",
+                "df = df.withColumn(\"flag\", F.lit(1))",
+                "df.show(20)",
+                "df = df.filter((F.col(\"age\") > F.lit(30)))",
+                "");
         String actual = PySparkChainGenerator.generate(json);
 
         printTestInfo("testShowSplitsPipelineForIntermediateResults", json, actual);

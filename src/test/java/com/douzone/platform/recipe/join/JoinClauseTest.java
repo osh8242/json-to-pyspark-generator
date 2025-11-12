@@ -7,6 +7,7 @@ import org.junit.jupiter.api.Test;
 import static com.douzone.platform.recipe.util.TestUtil.buildFullScript;
 import static com.douzone.platform.recipe.util.TestUtil.printTestInfo;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static com.douzone.platform.recipe.util.TestUtil.toNodeJson;
 
 /**
  * description    :
@@ -19,7 +20,7 @@ public class JoinClauseTest {
     @Test
     @DisplayName("Join: 가장 기본적인 Inner Join (별칭 사용)")
     void testBasicInnerJoinWithAliases() throws Exception {
-        String json = "{\n"
+        String json = toNodeJson("{\n"
                 + "  \"input\": \"df\",\n"
                 + "  \"steps\": [\n"
                 + "    {\n"
@@ -49,7 +50,7 @@ public class JoinClauseTest {
     @Test
     @DisplayName("Join: Left Outer Join 테스트")
     void testLeftOuterJoin() throws Exception {
-        String json = "{\n"
+        String json = toNodeJson("{\n"
                 + "  \"input\": \"df\",\n"
                 + "  \"steps\": [\n"
                 + "    {\n"
@@ -76,7 +77,7 @@ public class JoinClauseTest {
     @Test
     @DisplayName("Join: 여러 조건(Array on)으로 조인")
     void testJoinWithMultipleConditions() throws Exception {
-        String json = "{\n"
+        String json = toNodeJson("{\n"
                 + "  \"input\": \"df\",\n"
                 + "  \"steps\": [\n"
                 + "    {\n"
@@ -104,7 +105,7 @@ public class JoinClauseTest {
     @Test
     @DisplayName("Join: Cross Join (on 조건 없음)")
     void testCrossJoin() throws Exception {
-        String json = "{\n"
+        String json = toNodeJson("{\n"
                 + "  \"input\": \"df\",\n"
                 + "  \"steps\": [\n"
                 + "    {\n"
@@ -126,7 +127,7 @@ public class JoinClauseTest {
     @Test
     @DisplayName("Join: Self Join (동일 DataFrame 조인)")
     void testSelfJoin() throws Exception {
-        String json = "{\n"
+        String json = toNodeJson("{\n"
                 + "  \"input\": \"df\",\n"
                 + "  \"steps\": [\n"
                 + "    {\n"
@@ -156,7 +157,7 @@ public class JoinClauseTest {
     @Test
     @DisplayName("Join: 복잡한 on 조건 (비교 연산자 포함)")
     void testJoinWithComplexOnCondition() throws Exception {
-        String json = "{\n"
+        String json = toNodeJson("{\n"
                 + "  \"input\": \"df\",\n"
                 + "  \"steps\": [\n"
                 + "    {\n"

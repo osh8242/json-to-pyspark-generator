@@ -7,6 +7,7 @@ import org.junit.jupiter.api.Test;
 import static com.douzone.platform.recipe.util.TestUtil.buildFullScript;
 import static com.douzone.platform.recipe.util.TestUtil.printTestInfo;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static com.douzone.platform.recipe.util.TestUtil.toNodeJson;
 
 /**
  * description    : drop() step 테스트
@@ -20,7 +21,7 @@ public class DropClauseTest {
     @Test
     @DisplayName("Drop: 단일 컬럼 제거")
     void testSingleColumnDrop() throws Exception {
-        String json = "{\n"
+        String json = toNodeJson("{\n"
                 + "  \"input\": \"df\",\n"
                 + "  \"steps\": [\n"
                 + "    { \"step\": \"drop\", \"cols\": [\"temp_col\"] }\n"
@@ -38,7 +39,7 @@ public class DropClauseTest {
     @Test
     @DisplayName("Drop: 여러 컬럼 제거")
     void testMultipleColumnsDrop() throws Exception {
-        String json = "{\n"
+        String json = toNodeJson("{\n"
                 + "  \"input\": \"df\",\n"
                 + "  \"steps\": [\n"
                 + "    { \"step\": \"drop\", \"cols\": [\"id\", \"timestamp\", \"unused_flag\"] }\n"
@@ -56,7 +57,7 @@ public class DropClauseTest {
     @Test
     @DisplayName("Drop: 빈 배열 (빈 drop 호출)")
     void testEmptyColumnsDrop() throws Exception {
-        String json = "{\n"
+        String json = toNodeJson("{\n"
                 + "  \"input\": \"df\",\n"
                 + "  \"steps\": [\n"
                 + "    { \"step\": \"drop\", \"cols\": [] }\n"
@@ -74,7 +75,7 @@ public class DropClauseTest {
     @Test
     @DisplayName("Drop: 다단계 체인에 포함 (filter 후 drop)")
     void testDropInMultiStepPipeline() throws Exception {
-        String json = "{\n"
+        String json = toNodeJson("{\n"
                 + "  \"input\": \"df\",\n"
                 + "  \"steps\": [\n"
                 + "    { \"step\": \"filter\", \"condition\": { \"type\": \"op\", \"op\": \">\", \"left\": { \"type\": \"col\", \"name\": \"age\" }, \"right\": { \"type\": \"lit\", \"value\": 25 } } },\n"

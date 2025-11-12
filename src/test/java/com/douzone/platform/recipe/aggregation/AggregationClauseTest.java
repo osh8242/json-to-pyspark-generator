@@ -7,6 +7,7 @@ import org.junit.jupiter.api.Test;
 import static com.douzone.platform.recipe.util.TestUtil.buildFullScript;
 import static com.douzone.platform.recipe.util.TestUtil.printTestInfo;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static com.douzone.platform.recipe.util.TestUtil.toNodeJson;
 
 /**
  * description    :
@@ -20,7 +21,7 @@ public class AggregationClauseTest {
     @Test
     @DisplayName("Agg: 기본 집계 함수(sum, avg)와 별칭(alias) 사용")
     void testBasicAggregationsWithAlias() throws Exception {
-        String json = "{\n"
+        String json = toNodeJson("{\n"
                 + "  \"input\": \"df\",\n"
                 + "  \"steps\": [\n"
                 + "    { \"step\": \"groupBy\", \"keys\": [{ \"type\": \"col\", \"name\": \"department\" }] },\n"
@@ -51,7 +52,7 @@ public class AggregationClauseTest {
     @Test
     @DisplayName("Agg: 고유값 개수(countDistinct) 집계")
     void testCountDistinct() throws Exception {
-        String json = "{\n"
+        String json = toNodeJson("{\n"
                 + "  \"input\": \"df\",\n"
                 + "  \"steps\": [\n"
                 + "    { \"step\": \"groupBy\", \"keys\": [{ \"type\": \"col\", \"name\": \"category\" }] },\n"
@@ -78,7 +79,7 @@ public class AggregationClauseTest {
     @Test
     @DisplayName("Agg: 조건부 집계 (CASE WHEN 사용)")
     void testConditionalAggregation() throws Exception {
-        String json = "{\n"
+        String json = toNodeJson("{\n"
                 + "  \"input\": \"df\",\n"
                 + "  \"steps\": [\n"
                 + "    { \"step\": \"groupBy\", \"keys\": [{ \"type\": \"col\", \"name\": \"department\" }] },\n"
@@ -119,7 +120,7 @@ public class AggregationClauseTest {
     @Test
     @DisplayName("Agg: 표현식에 대한 집계 (sum(price * quantity))")
     void testAggregationOnExpression() throws Exception {
-        String json = "{\n"
+        String json = toNodeJson("{\n"
                 + "  \"input\": \"df\",\n"
                 + "  \"steps\": [\n"
                 + "    { \"step\": \"groupBy\", \"keys\": [{ \"type\": \"col\", \"name\": \"order_id\" }] },\n"
@@ -156,7 +157,7 @@ public class AggregationClauseTest {
     @Test
     @DisplayName("Agg: collect_list와 collect_set 집계")
     void testCollectAggregations() throws Exception {
-        String json = "{\n"
+        String json = toNodeJson("{\n"
                 + "  \"input\": \"df\",\n"
                 + "  \"steps\": [\n"
                 + "    { \"step\": \"groupBy\", \"keys\": [{ \"type\": \"col\", \"name\": \"department\" }] },\n"
@@ -185,7 +186,7 @@ public class AggregationClauseTest {
     @Test
     @DisplayName("Agg: groupBy 없는 전체(Global) 집계")
     void testGlobalAggregationWithoutGroupBy() throws Exception {
-        String json = "{\n"
+        String json = toNodeJson("{\n"
                 + "  \"input\": \"sales_df\",\n"
                 + "  \"steps\": [\n"
                 + "    {\n"
@@ -198,14 +199,12 @@ public class AggregationClauseTest {
                 + "  ]\n"
                 + "}";
 
-        String expectedStep = "  .agg(\n"
-                + "      F.sum(F.col(\"amount\")).alias(\"total_sales\"),\n"
-                + "      F.max(F.col(\"transaction_date\")).alias(\"latest_transaction\")\n"
-                + "  )\n";
-        String expected = "result_df = (\n"
-                + "  sales_df\n" // input이 df가 아닌 경우도 테스트
-                + expectedStep
-                + ")\n";
+        String expected = String.join("\n",
+                "sales_df = sales_df.agg(",
+                "      F.sum(F.col(\"amount\")).alias(\"total_sales\"),",
+                "      F.max(F.col(\"transaction_date\")).alias(\"latest_transaction\")",
+                "  )",
+                "");
         String actual = PySparkChainGenerator.generate(json);
 
         printTestInfo("testGlobalAggregationWithoutGroupBy", json, actual);

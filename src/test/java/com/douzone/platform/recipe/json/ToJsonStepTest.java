@@ -7,6 +7,7 @@ import org.junit.jupiter.api.Test;
 import static com.douzone.platform.recipe.util.TestUtil.buildFullScript;
 import static com.douzone.platform.recipe.util.TestUtil.printTestInfo;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static com.douzone.platform.recipe.util.TestUtil.toNodeJson;
 
 /**
  * description    : toJSON() step 지원 테스트
@@ -20,7 +21,7 @@ public class ToJsonStepTest {
     @Test
     @DisplayName("toJSON: 기본 체인 생성")
     void testToJsonStepGeneratesChain() throws Exception {
-        String json = "{\n"
+        String json = toNodeJson("{\n"
                 + "  \"input\": \"df\",\n"
                 + "  \"steps\": [\n"
                 + "    { \"step\": \"toJSON\" }\n"
@@ -37,7 +38,7 @@ public class ToJsonStepTest {
     @Test
     @DisplayName("toJSON: 기본 체인 생성 - take 옵션")
     void testToJsonStepGeneratesChainWithTake() throws Exception {
-        String json = "{\n"
+        String json = toNodeJson("{\n"
                 + "  \"input\": \"df\",\n"
                 + "  \"steps\": [\n"
                 + "    { \"step\": \"toJSON\", \"take\": 50 }\n"
@@ -57,7 +58,7 @@ public class ToJsonStepTest {
     @Test
     @DisplayName("toJSON: take 옵션을 사용하여 결과 제한")
     void testToJsonStepWithTakeOption() throws Exception {
-        String json = "{\n"
+        String json = toNodeJson("{\n"
                 + "  \"input\": \"df\",\n"
                 + "  \"steps\": [\n"
                 + "    {\n"

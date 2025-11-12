@@ -7,13 +7,14 @@ import org.junit.jupiter.api.Test;
 import static com.douzone.platform.recipe.util.TestUtil.buildFullScript;
 import static com.douzone.platform.recipe.util.TestUtil.printTestInfo;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static com.douzone.platform.recipe.util.TestUtil.toNodeJson;
 
 public class SampleClauseTest {
 
     @Test
     @DisplayName("Sample: withReplacement True 및 숫자 시드")
     void testSampleWithReplacementAndNumericSeed() throws Exception {
-        String json = "{\n"
+        String json = toNodeJson("{\n"
                 + "  \"input\": \"df\",\n"
                 + "  \"steps\": [\n"
                 + "    { \"step\": \"sample\", \"withReplacement\": true, \"fraction\": 0.1, \"seed\": 42 }\n"
@@ -31,7 +32,7 @@ public class SampleClauseTest {
     @Test
     @DisplayName("Sample: 문자열 시드")
     void testSampleWithStringSeed() throws Exception {
-        String json = "{\n"
+        String json = toNodeJson("{\n"
                 + "  \"input\": \"df\",\n"
                 + "  \"steps\": [\n"
                 + "    { \"step\": \"sample\", \"fraction\": 0.25, \"seed\": \"abc123\" }\n"

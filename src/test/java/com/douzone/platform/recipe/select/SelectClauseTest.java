@@ -7,6 +7,7 @@ import org.junit.jupiter.api.Test;
 import static com.douzone.platform.recipe.util.TestUtil.buildFullScript;
 import static com.douzone.platform.recipe.util.TestUtil.printTestInfo;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static com.douzone.platform.recipe.util.TestUtil.toNodeJson;
 
 /**
  * description    :
@@ -20,7 +21,7 @@ public class SelectClauseTest {
     @Test
     @DisplayName("Select with 2 Columns: 기본적인 두개 컬럼 선택")
     void testSimpleSelect() throws Exception {
-        String json = "{\n"
+        String json = toNodeJson("{\n"
                 + "  \"input\": \"df\",\n"
                 + "  \"steps\": [\n"
                 + "    {\n"
@@ -45,7 +46,7 @@ public class SelectClauseTest {
     @Test
     @DisplayName("Select with Alias: 컬럼에 별칭(alias)을 부여하여 선택")
     void testSelectWithAlias() throws Exception {
-        String json = "{\n"
+        String json = toNodeJson("{\n"
                 + "  \"input\": \"df\",\n"
                 + "  \"steps\": [\n"
                 + "    {\n"
@@ -70,7 +71,7 @@ public class SelectClauseTest {
     @Test
     @DisplayName("Select with As Key: 'as' 키를 사용한 별칭 처리")
     void testSelectWithAsKey() throws Exception {
-        String json = "{\n"
+        String json = toNodeJson("{\n"
                 + "  \"input\": \"df\",\n"
                 + "  \"steps\": [\n"
                 + "    {\n"
@@ -95,7 +96,7 @@ public class SelectClauseTest {
     @Test
     @DisplayName("Select with Function: 함수(F.upper)를 사용하고 별칭 부여")
     void testSelectWithFunctionAndAlias() throws Exception {
-        String json = "{\n"
+        String json = toNodeJson("{\n"
                 + "  \"input\": \"df\",\n"
                 + "  \"steps\": [\n"
                 + "    {\n"
@@ -127,7 +128,7 @@ public class SelectClauseTest {
     @Test
     @DisplayName("Select with Arithmetic Operation: 산술 연산(*) 결과를 선택하고 별칭 부여")
     void testSelectWithArithmeticOperation() throws Exception {
-        String json = "{\n"
+        String json = toNodeJson("{\n"
                 + "  \"input\": \"df\",\n"
                 + "  \"steps\": [\n"
                 + "    {\n"
@@ -160,7 +161,7 @@ public class SelectClauseTest {
     @Test
     @DisplayName("Select with Case When: CASE WHEN 표현식을 사용하여 새로운 컬럼 생성")
     void testSelectWithCaseWhen() throws Exception {
-        String json = "{\n"
+        String json = toNodeJson("{\n"
                 + "  \"input\": \"df\",\n"
                 + "  \"steps\": [\n"
                 + "    {\n"
