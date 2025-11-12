@@ -24,22 +24,33 @@ public class StepBuilder {
         this.mainGenerator = mainGenerator;
     }
 
+    private JsonNode getParamsOrSelf(JsonNode node) {
+        if (node != null && node.has("params")) {
+            JsonNode params = node.get("params");
+            if (params != null && params.isObject()) {
+                return params;
+            }
+        }
+        return node;
+    }
+
     public String buildLoad(JsonNode node) {
         if (node == null) {
             return null;
         }
 
-        String source = StringUtil.getText(node, "source", null);
+        JsonNode params = getParamsOrSelf(node);
+        String source = StringUtil.getText(params, "source", null);
         if (source == null) {
             return null;
         }
 
         switch (source.toLowerCase()) {
             case "iceberg":
-                return buildIcebergLoad(node);
+                return buildIcebergLoad(params);
             case "postgres":
             case "postgresql":
-                return buildPostgresLoad(node);
+                return buildPostgresLoad(params);
             default:
                 return null;
         }
@@ -173,7 +184,8 @@ public class StepBuilder {
     }
 
     public String buildSelect(JsonNode node) {
-        ArrayNode cols = (ArrayNode) node.get("columns");
+        JsonNode params = getParamsOrSelf(node);
+        ArrayNode cols = (ArrayNode) params.get("columns");
         List<String> parts = new ArrayList<>();
         for (JsonNode col : cols) {
             JsonNode e = col.get("expr");
@@ -184,13 +196,15 @@ public class StepBuilder {
     }
 
     public String buildWithColumn(JsonNode node) {
-        String name = StringUtil.getText(node, "name", null);
-        String expr = expressionBuilder.buildExpr(node.get("expr"));
+        JsonNode params = getParamsOrSelf(node);
+        String name = StringUtil.getText(params, "name", null);
+        String expr = expressionBuilder.buildExpr(params != null ? params.get("expr") : null);
         return "  .withColumn(" + StringUtil.pyString(name) + ", " + expr + ")\n";
     }
 
     public String buildWithColumns(JsonNode node) {
-        JsonNode cols = node.get("cols");
+        JsonNode params = getParamsOrSelf(node);
+        JsonNode cols = params.get("cols");
         List<String> kv = new ArrayList<>();
         cols.fieldNames().forEachRemaining(k -> {
             String v = expressionBuilder.buildExpr(cols.get(k));
@@ -201,7 +215,8 @@ public class StepBuilder {
     }
 
     public String buildFilter(JsonNode node) {
-        String cond = expressionBuilder.buildExpr(node.get("condition"));
+        JsonNode params = getParamsOrSelf(node);
+        String cond = expressionBuilder.buildExpr(params.get("condition"));
         return "  .filter(" + cond + ")\n";
     }
 
@@ -209,13 +224,14 @@ public class StepBuilder {
      * Join 구문을 생성합니다. right 파라미터가 JSON 객체일 경우 재귀적으로 처리합니다.
      */
     public String buildJoin(JsonNode node) throws Exception {
-        JsonNode rightNode = node.get("right");
-        String how = StringUtil.getText(node, "how", "inner");
-        String leftAlias = StringUtil.getText(node, "leftAlias", null);
-        String rightAlias = StringUtil.getText(node, "rightAlias", null);
+        JsonNode params = getParamsOrSelf(node);
+        JsonNode rightNode = params != null ? params.get("right") : null;
+        String how = StringUtil.getText(params, "how", "inner");
+        String leftAlias = StringUtil.getText(params, "leftAlias", null);
+        String rightAlias = StringUtil.getText(params, "rightAlias", null);
 
         // ON 조건 생성
-        JsonNode on = node.get("on");
+        JsonNode on = params != null ? params.get("on") : null;
         String onExpr;
         if (on == null || on.isNull()) {
             onExpr = "None";
@@ -277,14 +293,16 @@ public class StepBuilder {
     }
 
     public String buildGroupBy(JsonNode node) {
-        ArrayNode keys = (ArrayNode) node.get("keys");
+        JsonNode params = getParamsOrSelf(node);
+        ArrayNode keys = (ArrayNode) params.get("keys");
         List<String> parts = new ArrayList<>();
         for (JsonNode k : keys) parts.add(expressionBuilder.buildExpr(k));
         return "  .groupBy(" + String.join(", ", parts) + ")\n";
     }
 
     public String buildAgg(JsonNode node) {
-        ArrayNode aggs = (ArrayNode) node.get("aggs");
+        JsonNode params = getParamsOrSelf(node);
+        ArrayNode aggs = (ArrayNode) params.get("aggs");
         List<String> parts = new ArrayList<>();
         for (JsonNode agg : aggs) {
             JsonNode e = agg.get("expr");
@@ -295,7 +313,8 @@ public class StepBuilder {
     }
 
     public String buildOrderBy(JsonNode node) {
-        ArrayNode keys = (ArrayNode) node.get("keys");
+        JsonNode params = getParamsOrSelf(node);
+        ArrayNode keys = (ArrayNode) params.get("keys");
         List<String> parts = new ArrayList<>();
         for (JsonNode k : keys) {
             String expr = expressionBuilder.buildExpr(k.get("expr"));
@@ -316,9 +335,10 @@ public class StepBuilder {
     }
 
     public String buildToJson(JsonNode node) {
+        JsonNode params = getParamsOrSelf(node);
         StringBuilder sb = new StringBuilder("  .toJSON()\n");
-        if (node != null && node.has("take") && !node.get("take").isNull()) {
-            JsonNode takeNode = node.get("take");
+        if (params != null && params.has("take") && !params.get("take").isNull()) {
+            JsonNode takeNode = params.get("take");
             String takeValue;
             if (takeNode.isIntegralNumber()) {
                 takeValue = String.valueOf(takeNode.longValue());
@@ -331,12 +351,16 @@ public class StepBuilder {
     }
 
     public String buildLimit(JsonNode node) {
-        int n = node.get("n").asInt();
+        JsonNode params = getParamsOrSelf(node);
+        int n = params.get("n").asInt();
         return "  .limit(" + n + ")\n";
     }
 
     public String buildDropDuplicates(JsonNode node) {
-        ArrayNode subset = (ArrayNode) node.get("subset");
+        JsonNode params = getParamsOrSelf(node);
+        ArrayNode subset = params != null && params.has("subset") && params.get("subset").isArray()
+                ? (ArrayNode) params.get("subset")
+                : null;
         if (subset == null) return "  .dropDuplicates()\n";
         List<String> cols = new ArrayList<>();
         for (JsonNode c : subset) cols.add(StringUtil.pyString(c.asText()));
@@ -344,13 +368,14 @@ public class StepBuilder {
     }
 
     public String buildRepartition(JsonNode node) {
+        JsonNode params = getParamsOrSelf(node);
         StringBuilder b = new StringBuilder("  .repartition(");
-        if (node.has("numPartitions")) {
-            b.append(node.get("numPartitions").asInt());
-            if (node.has("by") && node.get("by").isArray() && !node.get("by").isEmpty()) {
+        if (params.has("numPartitions")) {
+            b.append(params.get("numPartitions").asInt());
+            if (params.has("by") && params.get("by").isArray() && !params.get("by").isEmpty()) {
                 b.append(", ");
                 List<String> by = new ArrayList<>();
-                for (JsonNode e : node.get("by")) by.add(expressionBuilder.buildExpr(e));
+                for (JsonNode e : params.get("by")) by.add(expressionBuilder.buildExpr(e));
                 b.append(String.join(", ", by));
             }
         }
@@ -359,14 +384,16 @@ public class StepBuilder {
     }
 
     public String buildCoalesce(JsonNode node) {
-        int n = node.get("numPartitions").asInt();
+        JsonNode params = getParamsOrSelf(node);
+        int n = params.get("numPartitions").asInt();
         return "  .coalesce(" + n + ")\n";
     }
 
     public String buildSample(JsonNode node) {
-        boolean withReplacement = node.has("withReplacement") && node.get("withReplacement").asBoolean(false);
-        String fraction = node.get("fraction").asText();
-        JsonNode seedNode = node.get("seed");
+        JsonNode params = getParamsOrSelf(node);
+        boolean withReplacement = params.has("withReplacement") && params.get("withReplacement").asBoolean(false);
+        String fraction = params.get("fraction").asText();
+        JsonNode seedNode = params.get("seed");
 
         StringBuilder sb = new StringBuilder("  .sample(");
         sb.append(StringUtil.pyBool(withReplacement)).append(", ").append(fraction);
@@ -388,15 +415,17 @@ public class StepBuilder {
     }
 
     public String buildDrop(JsonNode node) {
-        ArrayNode cols = (ArrayNode) node.get("cols");
+        JsonNode params = getParamsOrSelf(node);
+        ArrayNode cols = (ArrayNode) params.get("cols");
         List<String> parts = new ArrayList<>();
         for (JsonNode c : cols) parts.add(StringUtil.pyString(c.asText()));
         return "  .drop(" + String.join(", ", parts) + ")\n";
     }
 
     public String buildWithColumnRenamed(JsonNode node) {
-        String src = StringUtil.getText(node, "src", null);
-        String dst = StringUtil.getText(node, "dst", null);
+        JsonNode params = getParamsOrSelf(node);
+        String src = StringUtil.getText(params, "src", null);
+        String dst = StringUtil.getText(params, "dst", null);
         return "  .withColumnRenamed(" + StringUtil.pyString(src) + ", " + StringUtil.pyString(dst) + ")\n";
     }
 
@@ -412,7 +441,8 @@ public class StepBuilder {
 
         List<String> args = new ArrayList<>();
         if (node != null) {
-            JsonNode argsNode = node.get("args");
+            JsonNode params = getParamsOrSelf(node);
+            JsonNode argsNode = params != null ? params.get("args") : null;
             if (argsNode != null && !argsNode.isNull()) {
                 if (argsNode.isArray()) {
                     for (JsonNode arg : argsNode) {
@@ -461,9 +491,10 @@ public class StepBuilder {
     }
 
     public String buildShowAction(JsonNode node, String dfName) {
-        int n = node.has("n") ? node.get("n").asInt(20) : 20;  // 기본 20행
-        JsonNode truncateNode = node.get("truncate");
-        JsonNode verticalNode = node.get("vertical");
+        JsonNode params = getParamsOrSelf(node);
+        int n = params.has("n") ? params.get("n").asInt(20) : 20;  // 기본 20행
+        JsonNode truncateNode = params.get("truncate");
+        JsonNode verticalNode = params.get("vertical");
 
         StringBuilder args = new StringBuilder();
         args.append(n);

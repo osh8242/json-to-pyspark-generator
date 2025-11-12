@@ -40,7 +40,7 @@ public class ToJsonStepTest {
         String json = "{\n"
                 + "  \"input\": \"df\",\n"
                 + "  \"steps\": [\n"
-                + "    { \"step\": \"toJSON\", \"take\": 50 }\n"
+                + "    { \"step\": \"toJSON\", \"params\": { \"take\": 50 } }\n"
                 + "  ]\n"
                 + "}";
 
@@ -62,14 +62,16 @@ public class ToJsonStepTest {
                 + "  \"steps\": [\n"
                 + "    {\n"
                 + "      \"step\": \"filter\",\n"
-                + "      \"condition\": {\n"
-                + "        \"type\": \"op\",\n"
-                + "        \"op\": \"=\",\n"
-                + "        \"left\": { \"type\": \"col\", \"name\": \"status\" },\n"
-                + "        \"right\": { \"type\": \"lit\", \"value\": \"ACTIVE\" }\n"
+                + "      \"params\": {\n"
+                + "        \"condition\": {\n"
+                + "          \"type\": \"op\",\n"
+                + "          \"op\": \"=\",\n"
+                + "          \"left\": { \"type\": \"col\", \"name\": \"status\" },\n"
+                + "          \"right\": { \"type\": \"lit\", \"value\": \"ACTIVE\" }\n"
+                + "        }\n"
                 + "      }\n"
                 + "    },\n"
-                + "    { \"step\": \"toJSON\", \"take\": 20 }\n"
+                + "    { \"step\": \"toJSON\", \"params\": { \"take\": 20 } }\n"
                 + "  ]\n"
                 + "}";
 

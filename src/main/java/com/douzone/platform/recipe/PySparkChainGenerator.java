@@ -287,7 +287,7 @@ public class PySparkChainGenerator {
                 if ("load".equals(opName)) {
                     collectLoadTables(step, tables);
                 } else if ("join".equals(opName)) {                    // join step: right 처리
-                    JsonNode rightNode = step.get("right");
+                    JsonNode rightNode = getStepField(step, "right");
                     if (rightNode != null && !rightNode.isNull()) {
                         if (rightNode.isTextual()) {
                             // right가 문자열: 테이블 이름 추가
@@ -329,9 +329,10 @@ public class PySparkChainGenerator {
     }
 
     private void collectLoadTables(JsonNode step, Set<String> tables) {
-        String source = StringUtil.getText(step, "source", null);
+        JsonNode params = getStepParams(step);
+        String source = StringUtil.getText(params, "source", null);
         if (source == null) {
-            String table = StringUtil.getText(step, "table", null);
+            String table = StringUtil.getText(params, "table", null);
             if (table != null && !table.isEmpty()) {
                 tables.add(table);
             }
@@ -340,9 +341,9 @@ public class PySparkChainGenerator {
 
         switch (source.toLowerCase()) {
             case "iceberg":
-                String catalog = StringUtil.getText(step, "catalog", null);
-                String database = StringUtil.getText(step, "database", null);
-                String table = StringUtil.getText(step, "table", null);
+                String catalog = StringUtil.getText(params, "catalog", null);
+                String database = StringUtil.getText(params, "database", null);
+                String table = StringUtil.getText(params, "table", null);
                 if (table != null && !table.isEmpty()) {
                     StringBuilder identifier = new StringBuilder();
                     if (catalog != null && !catalog.isEmpty()) {
@@ -357,11 +358,11 @@ public class PySparkChainGenerator {
                 break;
             case "postgres":
             case "postgresql":
-                String jdbcTable = StringUtil.getText(step, "table", null);
+                String jdbcTable = StringUtil.getText(params, "table", null);
                 if (jdbcTable != null && !jdbcTable.isEmpty()) {
                     tables.add(jdbcTable);
                 }
-                JsonNode options = step.get("options");
+                JsonNode options = params.get("options");
                 if (options != null && options.isObject()) {
                     if (options.hasNonNull("dbtable")) {
                         tables.add(options.get("dbtable").asText());
@@ -375,12 +376,27 @@ public class PySparkChainGenerator {
                 }
                 break;
             default:
-                String generic = StringUtil.getText(step, "table", null);
+                String generic = StringUtil.getText(params, "table", null);
                 if (generic != null && !generic.isEmpty()) {
                     tables.add(generic);
                 }
                 break;
         }
+    }
+
+    private JsonNode getStepParams(JsonNode step) {
+        if (step != null && step.has("params")) {
+            JsonNode params = step.get("params");
+            if (params != null && params.isObject()) {
+                return params;
+            }
+        }
+        return step;
+    }
+
+    private JsonNode getStepField(JsonNode step, String field) {
+        JsonNode params = getStepParams(step);
+        return params != null ? params.get(field) : null;
     }
 
     @Getter
