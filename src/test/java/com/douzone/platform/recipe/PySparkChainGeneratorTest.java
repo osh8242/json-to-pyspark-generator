@@ -73,6 +73,75 @@ public class PySparkChainGeneratorTest {
     }
 
     @Test
+    @DisplayName("신규 스키마: 각 스텝마다 별도 대입문 생성")
+    void testLinePerStepSchema() throws Exception {
+        String json = "{\n"
+                + "  \"steps\": [\n"
+                + "    {\n"
+                + "      \"input\": \"table1\",\n"
+                + "      \"node\": \"select\",\n"
+                + "      \"params\": {\n"
+                + "        \"columns\": [\n"
+                + "          { \"expr\": { \"type\": \"col\", \"name\": \"ptno\" } },\n"
+                + "          { \"expr\": { \"type\": \"col\", \"name\": \"btdt\" } }\n"
+                + "        ]\n"
+                + "      },\n"
+                + "      \"output\": \"table1_select1\"\n"
+                + "    },\n"
+                + "    {\n"
+                + "      \"input\": \"table1_select1\",\n"
+                + "      \"node\": \"filter\",\n"
+                + "      \"params\": {\n"
+                + "        \"condition\": {\n"
+                + "          \"type\": \"op\",\n"
+                + "          \"op\": \"=\",\n"
+                + "          \"left\": { \"type\": \"col\", \"name\": \"ptno\" },\n"
+                + "          \"right\": { \"type\": \"lit\", \"value\": \"123\" }\n"
+                + "        }\n"
+                + "      },\n"
+                + "      \"output\": \"table1_select1_filter1\"\n"
+                + "    },\n"
+                + "    {\n"
+                + "      \"input\": \"table1_select1_filter1\",\n"
+                + "      \"node\": \"groupBy\",\n"
+                + "      \"params\": {\n"
+                + "        \"keys\": [ { \"type\": \"col\", \"name\": \"btdt\" } ]\n"
+                + "      },\n"
+                + "      \"output\": \"table1_select1_filter1_groupby1\"\n"
+                + "    },\n"
+                + "    {\n"
+                + "      \"input\": \"table1_select1_filter1_groupby1\",\n"
+                + "      \"node\": \"agg\",\n"
+                + "      \"params\": {\n"
+                + "        \"aggs\": [\n"
+                + "          {\n"
+                + "            \"expr\": {\n"
+                + "              \"type\": \"func\",\n"
+                + "              \"name\": \"count\",\n"
+                + "              \"args\": [ { \"type\": \"col\", \"name\": \"*\" } ]\n"
+                + "            },\n"
+                + "            \"alias\": \"cnt\"\n"
+                + "          }\n"
+                + "        ]\n"
+                + "      },\n"
+                + "      \"output\": \"table1_select1_filter1_groupby1_agg1\"\n"
+                + "    }\n"
+                + "  ]\n"
+                + "}";
+
+        String expected = "table1_select1 = table1.select(F.col(\"ptno\"), F.col(\"btdt\"))\n"
+                + "table1_select1_filter1 = table1_select1.filter((F.col(\"ptno\") == F.lit(\"123\")))\n"
+                + "table1_select1_filter1_groupby1 = table1_select1_filter1.groupBy(F.col(\"btdt\"))\n"
+                + "table1_select1_filter1_groupby1_agg1 = table1_select1_filter1_groupby1.agg(\n"
+                + "      F.count(F.col(\"*\")).alias(\"cnt\")\n"
+                + "  )\n";
+
+        String actual = PySparkChainGenerator.generate(json);
+
+        assertEquals(expected, actual);
+    }
+
+    @Test
     @DisplayName("withColumn, withColumns 테스트")
     public void testWithColumn_and_withColumns_containsExpectedFragments() throws Exception {
         String json = "{\n" +
