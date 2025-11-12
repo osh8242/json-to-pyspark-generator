@@ -37,6 +37,8 @@ public class StepBuilder {
         String input = StringUtil.getText(node, "input", null);
         String output = StringUtil.getText(node, "output", null);
 
+        enforceInputOutput(opName, input, output);
+
         switch (opName) {
             case "load":
                 String loadExpr = buildLoad(node);
@@ -81,13 +83,7 @@ public class StepBuilder {
             case "withColumnRenamed":
                 return formatTransformation(input, output, buildWithColumnRenamed(node));
             case "show":
-                String target = input;
-                if (target == null || target.isEmpty()) {
-                    target = output;
-                }
-                if (target == null || target.isEmpty()) {
-                    target = "df";
-                }
+                String target = (input == null || input.isEmpty()) ? output : input;
                 return buildShowAction(node, target);
             default:
                 return formatTransformation(input, output, buildDefaultStep(opName, node));
@@ -638,6 +634,15 @@ public class StepBuilder {
             sanitized.add(line);
         }
         return String.join("\n", sanitized);
+    }
+
+    private void enforceInputOutput(String opName, String input, String output) {
+        if (input == null || input.trim().isEmpty()) {
+            throw new IllegalArgumentException("node '" + opName + "' requires a non-empty 'input'");
+        }
+        if (output == null || output.trim().isEmpty()) {
+            throw new IllegalArgumentException("node '" + opName + "' requires a non-empty 'output'");
+        }
     }
 
     private String indentLines(String expr, String indent) {

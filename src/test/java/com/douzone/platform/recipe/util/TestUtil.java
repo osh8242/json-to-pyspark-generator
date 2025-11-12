@@ -99,8 +99,7 @@ public class TestUtil {
         String baseInput = root.hasNonNull("input") ? root.get("input").asText() : "df";
         ArrayNode steps = root.withArray("steps");
 
-        String previousOutput = isIdentifier(baseInput) ? baseInput : "df";
-        String activeInput = baseInput;
+        String lastOutput = sanitizeIdentifier(baseInput, "df");
 
         for (JsonNode node : steps) {
             if (!(node instanceof ObjectNode)) {
@@ -123,38 +122,20 @@ public class TestUtil {
                 continue;
             }
 
-            if (!step.hasNonNull("input") || step.get("input").asText().isEmpty()) {
-                step.put("input", activeInput);
-            } else {
-                activeInput = step.get("input").asText();
-            }
-
+            String sanitizedInput = sanitizeField(step, "input", lastOutput);
             boolean isAction = "show".equals(nodeName);
+
+            String defaultOutput = isAction ? sanitizedInput : lastOutput;
+            String sanitizedOutput = sanitizeField(step, "output", defaultOutput);
+
             if (isAction) {
-                if (!step.hasNonNull("input") || step.get("input").asText().isEmpty()) {
-                    step.put("input", previousOutput);
+                if (!sanitizedOutput.equals(sanitizedInput)) {
+                    sanitizedOutput = sanitizedInput;
+                    step.put("output", sanitizedOutput);
                 }
-                step.remove("output");
-                continue;
-            }
-
-            String outputName = null;
-            if (step.hasNonNull("output") && !step.get("output").asText().isEmpty()) {
-                outputName = step.get("output").asText();
             } else {
-                outputName = previousOutput;
-                if (!isIdentifier(outputName)) {
-                    outputName = "df";
-                }
-                step.put("output", outputName);
+                lastOutput = sanitizedOutput;
             }
-
-            previousOutput = outputName;
-            if (!isIdentifier(previousOutput)) {
-                previousOutput = "df";
-                step.put("output", previousOutput);
-            }
-            activeInput = previousOutput;
         }
 
         root.remove("input");
@@ -206,5 +187,22 @@ public class TestUtil {
 
     private static boolean isIdentifier(String value) {
         return value != null && IDENTIFIER.matcher(value).matches();
+    }
+
+    private static String sanitizeField(ObjectNode node, String field, String fallback) {
+        String candidate = node.hasNonNull(field) ? node.get(field).asText() : null;
+        String sanitized = sanitizeIdentifier(candidate, fallback);
+        node.put(field, sanitized);
+        return sanitized;
+    }
+
+    private static String sanitizeIdentifier(String candidate, String fallback) {
+        if (isIdentifier(candidate)) {
+            return candidate;
+        }
+        if (isIdentifier(fallback)) {
+            return fallback;
+        }
+        return "df";
     }
 }
