@@ -14,6 +14,7 @@ public class PySparkChainGenerator {
 
     private final StepBuilder stepBuilder;
     private final ObjectMapper om = new ObjectMapper();
+
     // 생성자에서 StepBuilder를 초기화하며, 재귀 호출을 위해 자기 자신의 참조를 넘겨줍니다.
     public PySparkChainGenerator() {
         this.stepBuilder = new StepBuilder(this);
@@ -59,122 +60,93 @@ public class PySparkChainGenerator {
     }
 
     public String generatePySparkCode(JsonNode root) throws Exception {
-        String inputDf = StringUtil.getText(root, "input", "df");
-        String outDf = StringUtil.getText(root, "output", "result_df");
         ArrayNode steps = (ArrayNode) root.get("steps");
 
         StringBuilder script = new StringBuilder();
-        String currentBase = inputDf;
-        StringBuilder chainBuilder = new StringBuilder();
-        boolean materialized = false;
 
         if (steps != null) {
-            for (JsonNode step : steps) {
-                String opName = StringUtil.getText(step, "step", null);
+            for (JsonNode node : steps) {
+                String opName = StringUtil.getText(node, "node", null);
                 if (opName == null) {
                     continue;
                 }
 
+                String inputDf = StringUtil.getText(node, "input", "");
+                String outputDf = StringUtil.getText(node, "output", null);
+
+                // 1) show 는 action 이라 대입문 없이 한 줄짜리 statement 로 생성
+                if ("show".equals(opName)) {
+                    script.append(inputDf);
+                    script.append(stepBuilder.buildShowAction(node));  // ".show(...)\n"
+                    continue;
+                }
+
+                // 2) 나머지 node 들은 변환이므로 "out = in.xxx()" 형태로 생성
+                if (outputDf == null || outputDf.isEmpty()) {
+                    // output 이 없으면 in-place 갱신 (df = df.xxx())
+                    outputDf = inputDf;
+                }
+
+                // 대입문 헤더
+                script.append(outputDf)
+                        .append(" = ")
+                        .append(inputDf);
+
+                // 뒤에 체인 메서드 붙이기
                 switch (opName) {
                     case "load":
-                        String loadExpr = stepBuilder.buildLoad(step);
-                        if (loadExpr != null && !loadExpr.isEmpty()) {
-                            currentBase = loadExpr;
-                            chainBuilder.setLength(0);
-                            materialized = false;
-                        }
-                        break;
-                    case "show":
-                        if (!materialized || chainBuilder.length() > 0 || !outDf.equals(currentBase)) {
-                            appendAssignment(script, outDf, currentBase, chainBuilder);
-                            currentBase = outDf;
-                            chainBuilder.setLength(0);
-                            materialized = true;
-                        }
-                        script.append(stepBuilder.buildShowAction(step, outDf));
+                        script.append(stepBuilder.buildLoad(node));
                         break;
                     case "select":
-                        chainBuilder.append(stepBuilder.buildSelect(step));
-                        materialized = false;
+                        script.append(stepBuilder.buildSelect(node));
                         break;
                     case "withColumn":
-                        chainBuilder.append(stepBuilder.buildWithColumn(step));
-                        materialized = false;
+                        script.append(stepBuilder.buildWithColumn(node));
                         break;
                     case "withColumns":
-                        chainBuilder.append(stepBuilder.buildWithColumns(step));
-                        materialized = false;
+                        script.append(stepBuilder.buildWithColumns(node));
                         break;
                     case "filter":
                     case "where":
-                        chainBuilder.append(stepBuilder.buildFilter(step));
-                        materialized = false;
+                        script.append(stepBuilder.buildFilter(node));
                         break;
                     case "join":
-                        chainBuilder.append(stepBuilder.buildJoin(step));
-                        materialized = false;
+                        script.append(stepBuilder.buildJoin(node));
                         break;
                     case "groupBy":
-                        chainBuilder.append(stepBuilder.buildGroupBy(step));
-                        materialized = false;
+                        script.append(stepBuilder.buildGroupBy(node));
                         break;
                     case "agg":
-                        chainBuilder.append(stepBuilder.buildAgg(step));
-                        materialized = false;
+                        script.append(stepBuilder.buildAgg(node));
                         break;
                     case "orderBy":
                     case "sort":
-                        chainBuilder.append(stepBuilder.buildOrderBy(step));
-                        materialized = false;
+                        script.append(stepBuilder.buildOrderBy(node));
                         break;
                     case "toJSON":
-                        chainBuilder.append(stepBuilder.buildToJson(step));
-                        materialized = false;
+                        script.append(stepBuilder.buildToJson(node));
                         break;
                     case "limit":
-                        chainBuilder.append(stepBuilder.buildLimit(step));
-                        materialized = false;
+                        script.append(stepBuilder.buildLimit(node));
                         break;
                     case "distinct":
-                        chainBuilder.append("  .distinct()\n");
-                        materialized = false;
+                        script.append(".distinct()\n");
                         break;
                     case "dropDuplicates":
-                        chainBuilder.append(stepBuilder.buildDropDuplicates(step));
-                        materialized = false;
-                        break;
-                    case "repartition":
-                        chainBuilder.append(stepBuilder.buildRepartition(step));
-                        materialized = false;
-                        break;
-                    case "coalesce":
-                        chainBuilder.append(stepBuilder.buildCoalesce(step));
-                        materialized = false;
-                        break;
-                    case "sample":
-                        chainBuilder.append(stepBuilder.buildSample(step));
-                        materialized = false;
+                        script.append(stepBuilder.buildDropDuplicates(node));
                         break;
                     case "drop":
-                        chainBuilder.append(stepBuilder.buildDrop(step));
-                        materialized = false;
+                        script.append(stepBuilder.buildDrop(node));
                         break;
                     case "withColumnRenamed":
-                        chainBuilder.append(stepBuilder.buildWithColumnRenamed(step));
-                        materialized = false;
+                        script.append(stepBuilder.buildWithColumnRenamed(node));
                         break;
                     default:
-                        chainBuilder.append(stepBuilder.buildDefaultStep(opName, step));
-                        materialized = false;
+                        script.append(stepBuilder.buildDefaultStep(opName, node));
                         break;
                 }
             }
         }
-
-        if (!materialized || chainBuilder.length() > 0 || !outDf.equals(currentBase)) {
-            appendAssignment(script, outDf, currentBase, chainBuilder);
-        }
-
         return script.toString();
     }
 
@@ -191,7 +163,7 @@ public class PySparkChainGenerator {
         }
 
         for (JsonNode step : steps) {
-            String opName = StringUtil.getText(step, "step", null);
+            String opName = StringUtil.getText(step, "node", null);
             if (opName == null) continue;
 
             switch (opName) {
@@ -237,19 +209,10 @@ public class PySparkChainGenerator {
                     // show는 action이므로 체인에 포함하지 않음
                     break;
                 case "distinct":
-                    sb.append("  .distinct()\n");
+                    sb.append(".distinct()\n");
                     break;
                 case "dropDuplicates":
                     sb.append(stepBuilder.buildDropDuplicates(step));
-                    break;
-                case "repartition":
-                    sb.append(stepBuilder.buildRepartition(step));
-                    break;
-                case "coalesce":
-                    sb.append(stepBuilder.buildCoalesce(step));
-                    break;
-                case "sample":
-                    sb.append(stepBuilder.buildSample(step));
                     break;
                 case "drop":
                     sb.append(stepBuilder.buildDrop(step));
@@ -287,7 +250,7 @@ public class PySparkChainGenerator {
                 if ("load".equals(opName)) {
                     collectLoadTables(step, tables);
                 } else if ("join".equals(opName)) {                    // join step: right 처리
-                    JsonNode rightNode = step.get("right");
+                    JsonNode rightNode = getStepField(step, "right");
                     if (rightNode != null && !rightNode.isNull()) {
                         if (rightNode.isTextual()) {
                             // right가 문자열: 테이블 이름 추가
@@ -303,13 +266,6 @@ public class PySparkChainGenerator {
                 // 다른 step은 테이블 생성 안 하므로 무시
             }
         }
-    }
-
-    private void appendAssignment(StringBuilder script, String outDf, String baseExpression, StringBuilder chainBuilder) {
-        script.append(outDf).append(" = (\n");
-        script.append(formatBaseExpression(baseExpression));
-        script.append(chainBuilder);
-        script.append(")\n");
     }
 
     private String formatBaseExpression(String baseExpression) {
@@ -329,9 +285,10 @@ public class PySparkChainGenerator {
     }
 
     private void collectLoadTables(JsonNode step, Set<String> tables) {
-        String source = StringUtil.getText(step, "source", null);
+        JsonNode params = getStepParams(step);
+        String source = StringUtil.getText(params, "source", null);
         if (source == null) {
-            String table = StringUtil.getText(step, "table", null);
+            String table = StringUtil.getText(params, "table", null);
             if (table != null && !table.isEmpty()) {
                 tables.add(table);
             }
@@ -340,9 +297,9 @@ public class PySparkChainGenerator {
 
         switch (source.toLowerCase()) {
             case "iceberg":
-                String catalog = StringUtil.getText(step, "catalog", null);
-                String database = StringUtil.getText(step, "database", null);
-                String table = StringUtil.getText(step, "table", null);
+                String catalog = StringUtil.getText(params, "catalog", null);
+                String database = StringUtil.getText(params, "database", null);
+                String table = StringUtil.getText(params, "table", null);
                 if (table != null && !table.isEmpty()) {
                     StringBuilder identifier = new StringBuilder();
                     if (catalog != null && !catalog.isEmpty()) {
@@ -357,11 +314,11 @@ public class PySparkChainGenerator {
                 break;
             case "postgres":
             case "postgresql":
-                String jdbcTable = StringUtil.getText(step, "table", null);
+                String jdbcTable = StringUtil.getText(params, "table", null);
                 if (jdbcTable != null && !jdbcTable.isEmpty()) {
                     tables.add(jdbcTable);
                 }
-                JsonNode options = step.get("options");
+                JsonNode options = params.get("options");
                 if (options != null && options.isObject()) {
                     if (options.hasNonNull("dbtable")) {
                         tables.add(options.get("dbtable").asText());
@@ -375,12 +332,27 @@ public class PySparkChainGenerator {
                 }
                 break;
             default:
-                String generic = StringUtil.getText(step, "table", null);
+                String generic = StringUtil.getText(params, "table", null);
                 if (generic != null && !generic.isEmpty()) {
                     tables.add(generic);
                 }
                 break;
         }
+    }
+
+    private JsonNode getStepParams(JsonNode step) {
+        if (step != null && step.has("params")) {
+            JsonNode params = step.get("params");
+            if (params != null && params.isObject()) {
+                return params;
+            }
+        }
+        return step;
+    }
+
+    private JsonNode getStepField(JsonNode step, String field) {
+        JsonNode params = getStepParams(step);
+        return params != null ? params.get(field) : null;
     }
 
     @Getter

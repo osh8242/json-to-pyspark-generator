@@ -15,27 +15,33 @@ class LoadClauseTest {
         String json = "{\n"
                 + "  \"steps\": [\n"
                 + "    {\n"
-                + "      \"step\": \"load\",\n"
-                + "      \"source\": \"iceberg\",\n"
-                + "      \"catalog\": \"dev\",\n"
-                + "      \"database\": \"sftp-60106\",\n"
-                + "      \"table\": \"orders\"\n"
+                + "      \"node\": \"load\",\n"
+                + "      \"output\": \"orders\",\n"
+                + "      \"params\": {\n"
+                + "        \"source\": \"iceberg\",\n"
+                + "        \"catalog\": \"dev\",\n"
+                + "        \"namespace\": \"sftp-60106\",\n"
+                + "        \"table\": \"orders\"\n"
+                + "      }\n"
                 + "    },\n"
                 + "    {\n"
-                + "      \"step\": \"select\",\n"
-                + "      \"columns\": [\n"
-                + "        { \"expr\": { \"type\": \"col\", \"name\": \"order_id\" } }\n"
-                + "      ]\n"
+                + "      \"node\": \"select\",\n"
+                + "      \"input\": \"orders\",\n"
+                + "      \"output\": \"orders_selected\",\n"
+                + "      \"params\": {\n"
+                + "        \"columns\": [\n"
+                + "          { \"expr\": { \"type\": \"col\", \"name\": \"order_id\" } }\n"
+                + "        ]\n"
+                + "      }\n"
                 + "    }\n"
                 + "  ]\n"
                 + "}";
 
         String actual = PySparkChainGenerator.generate(json);
         String expected = String.join("",
-                "result_df = (\n",
-                "  spark.read.table(\"dev.sftp-60106.orders\")\n",
-                "  .select(F.col(\"order_id\"))\n",
-                ")\n");
+                "orders = spark.read.table(\"dev.sftp-60106.orders\")\n",
+                "orders_selected = orders.select(F.col(\"order_id\"))\n"
+        );
 
         printTestInfo("testLoadIceberg_setsBaseExpression", json, actual);
         Assertions.assertThat(actual).isEqualTo(expected);
@@ -45,37 +51,43 @@ class LoadClauseTest {
     @DisplayName("load - postgres source (host/port -> url 변환)")
     void testLoadPostgres_buildsJdbcOptionsFromHostPort() throws Exception {
         String json = "{\n"
-                + "  \"input\": \"df\",\n"
                 + "  \"steps\": [\n"
                 + "    {\n"
-                + "      \"step\": \"load\",\n"
-                + "      \"source\": \"postgres\",\n"
-                + "      \"host\": \"localhost\",\n"
-                + "      \"port\": \"5432\",\n"
-                + "      \"database\": \"sample\",\n"
-                + "      \"table\": \"public.orders\",\n"
-                + "      \"user\": \"app\",\n"
-                + "      \"password\": \"secret\",\n"
-                + "      \"driver\": \"org.postgresql.Driver\"\n"
+                + "      \"node\": \"load\",\n"
+                + "      \"output\": \"df\",\n"
+                + "      \"params\": {\n"
+                + "        \"source\": \"postgres\",\n"
+                + "        \"host\": \"localhost\",\n"
+                + "        \"port\": \"5432\",\n"
+                + "        \"database\": \"sample\",\n"
+                + "        \"table\": \"public.orders\",\n"
+                + "        \"user\": \"app\",\n"
+                + "        \"password\": \"secret\",\n"
+                + "        \"driver\": \"org.postgresql.Driver\"\n"
+                + "      }\n"
                 + "    },\n"
-                + "    { \"step\": \"limit\", \"n\": 10 }\n"
+                + "    {\n"
+                + "      \"node\": \"limit\",\n"
+                + "      \"input\": \"df\",\n"
+                + "      \"output\": \"df_limited\",\n"
+                + "      \"params\": { \"n\": 10 }\n"
+                + "    }\n"
                 + "  ]\n"
                 + "}";
 
         String actual = PySparkChainGenerator.generate(json);
         String expected = String.join("",
-                "result_df = (\n",
-                "  spark.read.jdbc(\n",
-                "      url=\"jdbc:postgresql://localhost:5432/sample\",\n",
-                "      table=\"public.orders\",\n",
-                "      properties={\n",
-                "        \"user\": \"app\",\n",
-                "        \"password\": \"secret\",\n",
-                "        \"driver\": \"org.postgresql.Driver\"\n",
-                "      }\n",
-                "    )\n",
-                "  .limit(10)\n",
-                ")\n");
+                "df = spark.read.jdbc(\n" +
+                        "    url=\"jdbc:postgresql://localhost:5432/sample\",\n" +
+                        "    table=\"public.orders\",\n" +
+                        "    properties={\n" +
+                        "      \"user\": \"app\",\n" +
+                        "      \"password\": \"secret\",\n" +
+                        "      \"driver\": \"org.postgresql.Driver\"\n" +
+                        "    }\n" +
+                        "  )\n" +
+                        "df_limited = df.limit(10)\n"
+        );
 
         printTestInfo("testLoadPostgres_buildsJdbcOptionsFromHostPort", json, actual);
         Assertions.assertThat(actual).isEqualTo(expected);
@@ -87,16 +99,19 @@ class LoadClauseTest {
         String json = "{\n"
                 + "  \"steps\": [\n"
                 + "    {\n"
-                + "      \"step\": \"load\",\n"
-                + "      \"source\": \"postgres\",\n"
-                + "      \"url\": \"jdbc:postgresql://external-host:9999/custom\",\n"
-                + "      \"host\": \"should-not-appear\",\n"
-                + "      \"port\": \"4444\",\n"
-                + "      \"database\": \"ignored\",\n"
-                + "      \"table\": \"sales\",\n"
-                + "      \"user\": \"app\",\n"
-                + "      \"password\": \"secret\",\n"
-                + "      \"driver\": \"org.postgresql.Driver\"\n"
+                + "      \"node\": \"load\",\n"
+                + "      \"output\": \"df\",\n"
+                + "      \"params\": {\n"
+                + "        \"source\": \"postgres\",\n"
+                + "        \"url\": \"jdbc:postgresql://external-host:9999/custom\",\n"
+                + "        \"host\": \"should-not-appear\",\n"
+                + "        \"port\": \"4444\",\n"
+                + "        \"database\": \"ignored\",\n"
+                + "        \"table\": \"sales\",\n"
+                + "        \"user\": \"app\",\n"
+                + "        \"password\": \"secret\",\n"
+                + "        \"driver\": \"org.postgresql.Driver\"\n"
+                + "      }\n"
                 + "    }\n"
                 + "  ]\n"
                 + "}";
@@ -119,16 +134,19 @@ class LoadClauseTest {
         String json = "{\n"
                 + "  \"steps\": [\n"
                 + "    {\n"
-                + "      \"step\": \"load\",\n"
-                + "      \"source\": \"postgres\",\n"
-                + "      \"url\": \"jdbc:postgresql://localhost:5432/demo\",\n"
-                + "      \"table\": \"t\",\n"
-                + "      \"user\": \"app\",\n"
-                + "      \"password\": \"secret\",\n"
-                + "      \"driver\": \"org.postgresql.Driver\",\n"
-                + "      \"options\": {\n"
-                + "        \"stringtype\": \"unspecified\",\n"
-                + "        \"fetchsize\": \"1000\"\n"
+                + "      \"node\": \"load\",\n"
+                + "      \"output\": \"df\",\n"
+                + "      \"params\": {\n"
+                + "        \"source\": \"postgres\",\n"
+                + "        \"url\": \"jdbc:postgresql://localhost:5432/demo\",\n"
+                + "        \"table\": \"t\",\n"
+                + "        \"user\": \"app\",\n"
+                + "        \"password\": \"secret\",\n"
+                + "        \"driver\": \"org.postgresql.Driver\",\n"
+                + "        \"options\": {\n"
+                + "          \"stringtype\": \"unspecified\",\n"
+                + "          \"fetchsize\": \"1000\"\n"
+                + "        }\n"
                 + "      }\n"
                 + "    }\n"
                 + "  ]\n"
@@ -150,38 +168,40 @@ class LoadClauseTest {
         String json = "{\n"
                 + "  \"steps\": [\n"
                 + "    {\n"
-                + "      \"step\": \"load\",\n"
-                + "      \"source\": \"postgres\",\n"
-                + "      \"url\": \"jdbc:postgresql://localhost:5432/sample\",\n"
-                + "      \"table\": \"public.orders\",\n"
-                + "      \"user\": \"app\",\n"
-                + "      \"password\": \"secret\",\n"
-                + "      \"driver\": \"org.postgresql.Driver\",\n"
-                + "      \"predicate\": [\n"
-                + "        \"order_date >= '2024-01-01'\",\n"
-                + "        \"order_date < '2024-02-01'\"\n"
-                + "      ]\n"
+                + "      \"node\": \"load\",\n"
+                + "      \"output\": \"df\",\n"
+                + "      \"params\": {\n"
+                + "        \"source\": \"postgres\",\n"
+                + "        \"url\": \"jdbc:postgresql://localhost:5432/sample\",\n"
+                + "        \"table\": \"public.orders\",\n"
+                + "        \"user\": \"app\",\n"
+                + "        \"password\": \"secret\",\n"
+                + "        \"driver\": \"org.postgresql.Driver\",\n"
+                + "        \"predicate\": [\n"
+                + "          \"order_date >= '2024-01-01'\",\n"
+                + "          \"order_date < '2024-02-01'\"\n"
+                + "        ]\n"
+                + "      }\n"
                 + "    }\n"
                 + "  ]\n"
                 + "}";
 
         String actual = PySparkChainGenerator.generate(json);
         String expected = String.join("",
-                "result_df = (\n",
-                "  spark.read.jdbc(\n",
-                "      url=\"jdbc:postgresql://localhost:5432/sample\",\n",
-                "      table=\"public.orders\",\n",
-                "      predicates=[\n",
-                "        \"order_date >= '2024-01-01'\",\n",
-                "        \"order_date < '2024-02-01'\"\n",
-                "      ],\n",
-                "      properties={\n",
-                "        \"user\": \"app\",\n",
-                "        \"password\": \"secret\",\n",
-                "        \"driver\": \"org.postgresql.Driver\"\n",
-                "      }\n",
-                "    )\n",
-                ")\n");
+                "df = spark.read.jdbc(\n" +
+                        "    url=\"jdbc:postgresql://localhost:5432/sample\",\n" +
+                        "    table=\"public.orders\",\n" +
+                        "    predicates=[\n" +
+                        "      \"order_date >= '2024-01-01'\",\n" +
+                        "      \"order_date < '2024-02-01'\"\n" +
+                        "    ],\n" +
+                        "    properties={\n" +
+                        "      \"user\": \"app\",\n" +
+                        "      \"password\": \"secret\",\n" +
+                        "      \"driver\": \"org.postgresql.Driver\"\n" +
+                        "    }\n" +
+                        "  )\n"
+        );
 
         printTestInfo("testLoadPostgres_supportsPredicate", json, actual);
         Assertions.assertThat(actual).isEqualTo(expected);

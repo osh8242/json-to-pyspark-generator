@@ -4,7 +4,6 @@ import com.douzone.platform.recipe.PySparkChainGenerator;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-import static com.douzone.platform.recipe.util.TestUtil.buildFullScript;
 import static com.douzone.platform.recipe.util.TestUtil.printTestInfo;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -21,13 +20,15 @@ public class ShowClauseTest {
     @DisplayName("Show: 기본 출력 (20행)")
     void testBasicShow() throws Exception {
         String json = "{\n"
-                + "  \"input\": \"df\",\n"
                 + "  \"steps\": [\n"
-                + "    { \"step\": \"show\" }\n"
+                + "    {\n"
+                + "      \"node\": \"show\",\n"
+                + "      \"input\": \"df\"\n"
+                + "    }\n"
                 + "  ]\n"
                 + "}";
 
-        String expected = buildFullScript("", "result_df.show(20)\n");
+        String expected = "df.show(20)\n";
         String actual = PySparkChainGenerator.generate(json);
 
         printTestInfo("testBasicShow", json, actual);
@@ -38,13 +39,20 @@ public class ShowClauseTest {
     @DisplayName("Show: 행 수와 옵션 지정 (5행, 전체 출력, 세로 형식)")
     void testShowWithOptions() throws Exception {
         String json = "{\n"
-                + "  \"input\": \"df\",\n"
                 + "  \"steps\": [\n"
-                + "    { \"step\": \"show\", \"n\": 5, \"truncate\": false, \"vertical\": true }\n"
+                + "    {\n"
+                + "      \"node\": \"show\",\n"
+                + "      \"input\": \"df\",\n"
+                + "      \"params\": {\n"
+                + "        \"n\": 5,\n"
+                + "        \"truncate\": false,\n"
+                + "        \"vertical\": true\n"
+                + "      }\n"
+                + "    }\n"
                 + "  ]\n"
                 + "}";
 
-        String expected = buildFullScript("", "result_df.show(5, truncate=False, vertical=True)\n");
+        String expected = "df.show(5, truncate=False, vertical=True)\n";
         String actual = PySparkChainGenerator.generate(json);
 
         printTestInfo("testShowWithOptions", json, actual);
@@ -55,13 +63,18 @@ public class ShowClauseTest {
     @DisplayName("Show: truncate 길이 지정")
     void testShowWithTruncateLength() throws Exception {
         String json = "{\n"
-                + "  \"input\": \"df\",\n"
                 + "  \"steps\": [\n"
-                + "    { \"step\": \"show\", \"truncate\": 50 }\n"
+                + "    {\n"
+                + "      \"node\": \"show\",\n"
+                + "      \"input\": \"df\",\n"
+                + "      \"params\": {\n"
+                + "        \"truncate\": 50\n"
+                + "      }\n"
+                + "    }\n"
                 + "  ]\n"
                 + "}";
 
-        String expected = buildFullScript("", "result_df.show(20, truncate=50)\n");
+        String expected = "df.show(20, truncate=50)\n";
         String actual = PySparkChainGenerator.generate(json);
 
         printTestInfo("testShowWithTruncateLength", json, actual);
@@ -72,21 +85,59 @@ public class ShowClauseTest {
     @DisplayName("Show: 다단계 체인 끝에 show 적용")
     void testShowInMultiStepPipeline() throws Exception {
         String json = "{\n"
-                + "  \"input\": \"df\",\n"
                 + "  \"steps\": [\n"
-                + "    { \"step\": \"filter\", \"condition\": { \"type\": \"op\", \"op\": \">\", \"left\": { \"type\": \"col\", \"name\": \"salary\" }, \"right\": { \"type\": \"lit\", \"value\": 50000 } } },\n"
-                + "    { \"step\": \"groupBy\", \"keys\": [{ \"type\": \"col\", \"name\": \"department\" }] },\n"
-                + "    { \"step\": \"agg\", \"aggs\": [{ \"expr\": { \"type\": \"func\", \"name\": \"avg\", \"args\": [{ \"type\": \"col\", \"name\": \"salary\" }] }, \"alias\": \"avg_salary\" }] },\n"
-                + "    { \"step\": \"show\", \"n\": 10 }\n"
+                + "    {\n"
+                + "      \"node\": \"filter\",\n"
+                + "      \"input\": \"df\",\n"
+                + "      \"output\": \"df_filtered\",\n"
+                + "      \"params\": {\n"
+                + "        \"condition\": {\n"
+                + "          \"type\": \"op\", \"op\": \">\",\n"
+                + "          \"left\": { \"type\": \"col\", \"name\": \"salary\" },\n"
+                + "          \"right\": { \"type\": \"lit\", \"value\": 50000 }\n"
+                + "        }\n"
+                + "      }\n"
+                + "    },\n"
+                + "    {\n"
+                + "      \"node\": \"groupBy\",\n"
+                + "      \"input\": \"df_filtered\",\n"
+                + "      \"output\": \"df_grouped\",\n"
+                + "      \"params\": {\n"
+                + "        \"keys\": [ { \"type\": \"col\", \"name\": \"department\" } ]\n"
+                + "      }\n"
+                + "    },\n"
+                + "    {\n"
+                + "      \"node\": \"agg\",\n"
+                + "      \"input\": \"df_grouped\",\n"
+                + "      \"output\": \"df_aggregated\",\n"
+                + "      \"params\": {\n"
+                + "        \"aggs\": [\n"
+                + "          {\n"
+                + "            \"expr\": {\n"
+                + "              \"type\": \"func\", \"name\": \"avg\",\n"
+                + "              \"args\": [ { \"type\": \"col\", \"name\": \"salary\" } ]\n"
+                + "            },\n"
+                + "            \"alias\": \"avg_salary\"\n"
+                + "          }\n"
+                + "        ]\n"
+                + "      }\n"
+                + "    },\n"
+                + "    {\n"
+                + "      \"node\": \"show\",\n"
+                + "      \"input\": \"df_aggregated\",\n"
+                + "      \"params\": { \"n\": 10 }\n"
+                + "    }\n"
                 + "  ]\n"
                 + "}";
 
-        String expectedSteps = "  .filter((F.col(\"salary\") > F.lit(50000)))\n"
-                + "  .groupBy(F.col(\"department\"))\n"
-                + "  .agg(\n"
-                + "      F.avg(F.col(\"salary\")).alias(\"avg_salary\")\n"
-                + "  )\n";
-        String expected = buildFullScript(expectedSteps, "result_df.show(10)\n");
+        String expected =
+                "df_filtered = df.filter((F.col(\"salary\") > F.lit(50000)))\n" +
+                        "df_grouped = df_filtered.groupBy(F.col(\"department\"))\n" +
+                        "df_aggregated = df_grouped.agg(\n" +
+                        "      F.avg(F.col(\"salary\")).alias(\"avg_salary\")\n" +
+                        "  )\n" +
+                        "df_aggregated.show(10)\n";
+
         String actual = PySparkChainGenerator.generate(json);
 
         printTestInfo("testShowInMultiStepPipeline", json, actual);
@@ -97,24 +148,37 @@ public class ShowClauseTest {
     @DisplayName("Show: 다중 show 스텝 순서 보존")
     void testMultipleShowStepsPreserveOrder() throws Exception {
         String json = "{\n"
-                + "  \"input\": \"df\",\n"
                 + "  \"steps\": [\n"
-                + "    { \"step\": \"show\", \"n\": 3 },\n"
-                + "    { \"step\": \"filter\", \"condition\": { \"type\": \"op\", \"op\": \"==\", \"left\": { \"type\": \"col\", \"name\": \"status\" }, \"right\": { \"type\": \"lit\", \"value\": \"ACTIVE\" } } },\n"
-                + "    { \"step\": \"show\", \"n\": 8, \"truncate\": false }\n"
+                + "    {\n"
+                + "      \"node\": \"show\",\n"
+                + "      \"input\": \"df\",\n"
+                + "      \"params\": { \"n\": 3 }\n"
+                + "    },\n"
+                + "    {\n"
+                + "      \"node\": \"filter\",\n"
+                + "      \"input\": \"df\",\n"
+                + "      \"output\": \"df_filtered\",\n"
+                + "      \"params\": {\n"
+                + "        \"condition\": {\n"
+                + "          \"type\": \"op\", \"op\": \"==\",\n"
+                + "          \"left\": { \"type\": \"col\", \"name\": \"status\" },\n"
+                + "          \"right\": { \"type\": \"lit\", \"value\": \"ACTIVE\" }\n"
+                + "        }\n"
+                + "      }\n"
+                + "    },\n"
+                + "    {\n"
+                + "      \"node\": \"show\",\n"
+                + "      \"input\": \"df_filtered\",\n"
+                + "      \"params\": { \"n\": 8, \"truncate\": false }\n"
+                + "    }\n"
                 + "  ]\n"
                 + "}";
 
-        String expected = String.join("",
-                "result_df = (\n",
-                "  df\n",
-                ")\n",
-                "result_df.show(3)\n",
-                "result_df = (\n",
-                "  result_df\n",
-                "  .filter((F.col(\"status\") == F.lit(\"ACTIVE\")))\n",
-                ")\n",
-                "result_df.show(8, truncate=False)\n");
+        String expected =
+                "df.show(3)\n" +
+                        "df_filtered = df.filter((F.col(\"status\") == F.lit(\"ACTIVE\")))\n" +
+                        "df_filtered.show(8, truncate=False)\n";
+
         String actual = PySparkChainGenerator.generate(json);
 
         printTestInfo("testMultipleShowStepsPreserveOrder", json, actual);
@@ -125,24 +189,40 @@ public class ShowClauseTest {
     @DisplayName("Show: 중간 show 가 체인을 분할하여 중간 결과를 출력")
     void testShowSplitsPipelineForIntermediateResults() throws Exception {
         String json = "{\n"
-                + "  \"input\": \"df\",\n"
                 + "  \"steps\": [\n"
-                + "    { \"step\": \"withColumn\", \"name\": \"flag\", \"expr\": { \"type\": \"lit\", \"value\": 1 } },\n"
-                + "    { \"step\": \"show\" },\n"
-                + "    { \"step\": \"filter\", \"condition\": { \"type\": \"op\", \"op\": \">\", \"left\": { \"type\": \"col\", \"name\": \"age\" }, \"right\": { \"type\": \"lit\", \"value\": 30 } } }\n"
+                + "    {\n"
+                + "      \"node\": \"withColumn\",\n"
+                + "      \"input\": \"df\",\n"
+                + "      \"output\": \"df_with_flag\",\n"
+                + "      \"params\": {\n"
+                + "        \"name\": \"flag\",\n"
+                + "        \"expr\": { \"type\": \"lit\", \"value\": 1 }\n"
+                + "      }\n"
+                + "    },\n"
+                + "    {\n"
+                + "      \"node\": \"show\",\n"
+                + "      \"input\": \"df_with_flag\"\n"
+                + "    },\n"
+                + "    {\n"
+                + "      \"node\": \"filter\",\n"
+                + "      \"input\": \"df_with_flag\",\n"
+                + "      \"output\": \"df_filtered\",\n"
+                + "      \"params\": {\n"
+                + "        \"condition\": {\n"
+                + "          \"type\": \"op\", \"op\": \">\",\n"
+                + "          \"left\": { \"type\": \"col\", \"name\": \"age\" },\n"
+                + "          \"right\": { \"type\": \"lit\", \"value\": 30 }\n"
+                + "        }\n"
+                + "      }\n"
+                + "    }\n"
                 + "  ]\n"
                 + "}";
 
-        String expected = String.join("",
-                "result_df = (\n",
-                "  df\n",
-                "  .withColumn(\"flag\", F.lit(1))\n",
-                ")\n",
-                "result_df.show(20)\n",
-                "result_df = (\n",
-                "  result_df\n",
-                "  .filter((F.col(\"age\") > F.lit(30)))\n",
-                ")\n");
+        String expected =
+                "df_with_flag = df.withColumn(\"flag\", F.lit(1))\n" +
+                        "df_with_flag.show(20)\n" +
+                        "df_filtered = df_with_flag.filter((F.col(\"age\") > F.lit(30)))\n";
+
         String actual = PySparkChainGenerator.generate(json);
 
         printTestInfo("testShowSplitsPipelineForIntermediateResults", json, actual);

@@ -24,22 +24,34 @@ public class StepBuilder {
         this.mainGenerator = mainGenerator;
     }
 
+
+    private JsonNode getParamsOrSelf(JsonNode node) {
+        if (node != null && node.has("params")) {
+            JsonNode params = node.get("params");
+            if (params != null && params.isObject()) {
+                return params;
+            }
+        }
+        return node;
+    }
+
     public String buildLoad(JsonNode node) {
         if (node == null) {
             return null;
         }
 
-        String source = StringUtil.getText(node, "source", null);
+        JsonNode params = getParamsOrSelf(node);
+        String source = StringUtil.getText(params, "source", null);
         if (source == null) {
             return null;
         }
 
         switch (source.toLowerCase()) {
             case "iceberg":
-                return buildIcebergLoad(node);
+                return buildIcebergLoad(params);
             case "postgres":
             case "postgresql":
-                return buildPostgresLoad(node);
+                return buildPostgresLoad(params);
             default:
                 return null;
         }
@@ -47,7 +59,7 @@ public class StepBuilder {
 
     private String buildIcebergLoad(JsonNode node) {
         String catalog = StringUtil.getText(node, "catalog", null);
-        String database = StringUtil.getText(node, "database", null);
+        String namespace = StringUtil.getText(node, "namespace", null);
         String table = StringUtil.getText(node, "table", null);
 
         if (table == null) {
@@ -58,12 +70,12 @@ public class StepBuilder {
         if (catalog != null && !catalog.isEmpty()) {
             identifier.append(catalog).append('.');
         }
-        if (database != null && !database.isEmpty()) {
-            identifier.append(database).append('.');
+        if (namespace != null && !namespace.isEmpty()) {
+            identifier.append(namespace).append('.');
         }
         identifier.append(table);
 
-        return "spark.read.table(" + StringUtil.pyString(identifier.toString()) + ")";
+        return "spark.read.table(" + StringUtil.pyString(identifier.toString()) + ")\n";
     }
 
     private String buildPostgresLoad(JsonNode node) {
@@ -129,10 +141,8 @@ public class StepBuilder {
         }
         parameters.add(buildPropertiesParam(propertyEntries));
 
-        StringBuilder sb = new StringBuilder("spark.read.jdbc(\n");
-        sb.append(String.join(",\n", parameters));
-        sb.append("\n  )");
-        return sb.toString();
+        return "spark.read.jdbc(\n" + String.join(",\n", parameters) +
+                "\n  )\n";
     }
 
     private String formatPredicates(List<String> predicates) {
@@ -173,49 +183,54 @@ public class StepBuilder {
     }
 
     public String buildSelect(JsonNode node) {
-        ArrayNode cols = (ArrayNode) node.get("columns");
+        JsonNode params = getParamsOrSelf(node);
+        ArrayNode cols = (ArrayNode) params.get("columns");
         List<String> parts = new ArrayList<>();
         for (JsonNode col : cols) {
             JsonNode e = col.get("expr");
             String expr = expressionBuilder.buildExpr(e);
             parts.add(StringUtil.appendAliasIfExists(col, expr));
         }
-        return "  .select(" + String.join(", ", parts) + ")\n";
+        return ".select(" + String.join(", ", parts) + ")\n";
     }
 
     public String buildWithColumn(JsonNode node) {
-        String name = StringUtil.getText(node, "name", null);
-        String expr = expressionBuilder.buildExpr(node.get("expr"));
-        return "  .withColumn(" + StringUtil.pyString(name) + ", " + expr + ")\n";
+        JsonNode params = getParamsOrSelf(node);
+        String name = StringUtil.getText(params, "name", null);
+        String expr = expressionBuilder.buildExpr(params != null ? params.get("expr") : null);
+        return ".withColumn(" + StringUtil.pyString(name) + ", " + expr + ")\n";
     }
 
     public String buildWithColumns(JsonNode node) {
-        JsonNode cols = node.get("cols");
+        JsonNode params = getParamsOrSelf(node);
+        JsonNode cols = params.get("cols");
         List<String> kv = new ArrayList<>();
         cols.fieldNames().forEachRemaining(k -> {
             String v = expressionBuilder.buildExpr(cols.get(k));
             kv.add(StringUtil.pyString(k) + ": " + v);
         });
         String body = kv.isEmpty() ? "{}" : "{\n      " + String.join(",\n      ", kv) + "\n    }";
-        return "  .withColumns(" + body + ")\n";
+        return ".withColumns(" + body + ")\n";
     }
 
     public String buildFilter(JsonNode node) {
-        String cond = expressionBuilder.buildExpr(node.get("condition"));
-        return "  .filter(" + cond + ")\n";
+        JsonNode params = getParamsOrSelf(node);
+        String cond = expressionBuilder.buildExpr(params.get("condition"));
+        return ".filter(" + cond + ")\n";
     }
 
     /**
      * Join 구문을 생성합니다. right 파라미터가 JSON 객체일 경우 재귀적으로 처리합니다.
      */
     public String buildJoin(JsonNode node) throws Exception {
-        JsonNode rightNode = node.get("right");
-        String how = StringUtil.getText(node, "how", "inner");
-        String leftAlias = StringUtil.getText(node, "leftAlias", null);
-        String rightAlias = StringUtil.getText(node, "rightAlias", null);
+        JsonNode params = getParamsOrSelf(node);
+        JsonNode rightNode = params != null ? params.get("right") : null;
+        String how = StringUtil.getText(params, "how", "inner");
+        String leftAlias = StringUtil.getText(params, "leftAlias", null);
+        String rightAlias = StringUtil.getText(params, "rightAlias", null);
 
         // ON 조건 생성
-        JsonNode on = node.get("on");
+        JsonNode on = params != null ? params.get("on") : null;
         String onExpr;
         if (on == null || on.isNull()) {
             onExpr = "None";
@@ -236,9 +251,9 @@ public class StepBuilder {
         // Left DataFrame에 alias 적용
         StringBuilder sb = new StringBuilder();
         if (leftAlias != null && !leftAlias.isEmpty()) {
-            sb.append("  .alias(").append(StringUtil.pyString(leftAlias)).append(")\n");
+            sb.append(".alias(").append(StringUtil.pyString(leftAlias)).append(")");
         }
-        sb.append("  .join(").append(rightRef).append(", ").append(onExpr).append(", ").append(StringUtil.pyString(how)).append(")\n");
+        sb.append(".join(\n  ").append(rightRef).append(",\n  ").append(onExpr).append(",\n  ").append(StringUtil.pyString(how)).append("\n)\n");
         return sb.toString();
     }
 
@@ -277,25 +292,28 @@ public class StepBuilder {
     }
 
     public String buildGroupBy(JsonNode node) {
-        ArrayNode keys = (ArrayNode) node.get("keys");
+        JsonNode params = getParamsOrSelf(node);
+        ArrayNode keys = (ArrayNode) params.get("keys");
         List<String> parts = new ArrayList<>();
         for (JsonNode k : keys) parts.add(expressionBuilder.buildExpr(k));
-        return "  .groupBy(" + String.join(", ", parts) + ")\n";
+        return ".groupBy(" + String.join(", ", parts) + ")\n";
     }
 
     public String buildAgg(JsonNode node) {
-        ArrayNode aggs = (ArrayNode) node.get("aggs");
+        JsonNode params = getParamsOrSelf(node);
+        ArrayNode aggs = (ArrayNode) params.get("aggs");
         List<String> parts = new ArrayList<>();
         for (JsonNode agg : aggs) {
             JsonNode e = agg.get("expr");
             String expr = expressionBuilder.buildExpr(e);
             parts.add(StringUtil.appendAliasIfExists(agg, expr));
         }
-        return "  .agg(\n      " + String.join(",\n      ", parts) + "\n  )\n";
+        return ".agg(\n      " + String.join(",\n      ", parts) + "\n  )\n";
     }
 
     public String buildOrderBy(JsonNode node) {
-        ArrayNode keys = (ArrayNode) node.get("keys");
+        JsonNode params = getParamsOrSelf(node);
+        ArrayNode keys = (ArrayNode) params.get("keys");
         List<String> parts = new ArrayList<>();
         for (JsonNode k : keys) {
             String expr = expressionBuilder.buildExpr(k.get("expr"));
@@ -312,91 +330,55 @@ public class StepBuilder {
             }
             parts.add(sortExpr);
         }
-        return "  .orderBy(" + String.join(", ", parts) + ")\n";
+        return ".orderBy(" + String.join(", ", parts) + ")\n";
     }
 
     public String buildToJson(JsonNode node) {
-        StringBuilder sb = new StringBuilder("  .toJSON()\n");
-        if (node != null && node.has("take") && !node.get("take").isNull()) {
-            JsonNode takeNode = node.get("take");
+        JsonNode params = getParamsOrSelf(node);
+        StringBuilder sb = new StringBuilder(".toJSON()");
+        if (params != null && params.has("take") && !params.get("take").isNull()) {
+            JsonNode takeNode = params.get("take");
             String takeValue;
             if (takeNode.isIntegralNumber()) {
                 takeValue = String.valueOf(takeNode.longValue());
             } else {
                 takeValue = takeNode.asText();
             }
-            sb.append("  .take(").append(takeValue).append(")\n");
+            sb.append(".take(").append(takeValue).append(")");
         }
+        sb.append('\n');
         return sb.toString();
     }
 
     public String buildLimit(JsonNode node) {
-        int n = node.get("n").asInt();
-        return "  .limit(" + n + ")\n";
+        JsonNode params = getParamsOrSelf(node);
+        int n = params.get("n").asInt();
+        return ".limit(" + n + ")\n";
     }
 
     public String buildDropDuplicates(JsonNode node) {
-        ArrayNode subset = (ArrayNode) node.get("subset");
-        if (subset == null) return "  .dropDuplicates()\n";
+        JsonNode params = getParamsOrSelf(node);
+        ArrayNode subset = params != null && params.has("subset") && params.get("subset").isArray()
+                ? (ArrayNode) params.get("subset")
+                : null;
+        if (subset == null) return ".dropDuplicates()\n";
         List<String> cols = new ArrayList<>();
         for (JsonNode c : subset) cols.add(StringUtil.pyString(c.asText()));
-        return "  .dropDuplicates([" + String.join(", ", cols) + "])\n";
-    }
-
-    public String buildRepartition(JsonNode node) {
-        StringBuilder b = new StringBuilder("  .repartition(");
-        if (node.has("numPartitions")) {
-            b.append(node.get("numPartitions").asInt());
-            if (node.has("by") && node.get("by").isArray() && !node.get("by").isEmpty()) {
-                b.append(", ");
-                List<String> by = new ArrayList<>();
-                for (JsonNode e : node.get("by")) by.add(expressionBuilder.buildExpr(e));
-                b.append(String.join(", ", by));
-            }
-        }
-        b.append(")\n");
-        return b.toString();
-    }
-
-    public String buildCoalesce(JsonNode node) {
-        int n = node.get("numPartitions").asInt();
-        return "  .coalesce(" + n + ")\n";
-    }
-
-    public String buildSample(JsonNode node) {
-        boolean withReplacement = node.has("withReplacement") && node.get("withReplacement").asBoolean(false);
-        String fraction = node.get("fraction").asText();
-        JsonNode seedNode = node.get("seed");
-
-        StringBuilder sb = new StringBuilder("  .sample(");
-        sb.append(StringUtil.pyBool(withReplacement)).append(", ").append(fraction);
-
-        if (seedNode != null && !seedNode.isNull()) {
-            String seedValue;
-            if (seedNode.isNumber()) {
-                seedValue = seedNode.toString();
-            } else if (seedNode.isTextual()) {
-                seedValue = StringUtil.pyString(seedNode.asText());
-            } else {
-                seedValue = seedNode.toString();
-            }
-            sb.append(", ").append(seedValue);
-        }
-
-        sb.append(")\n");
-        return sb.toString();
+        return ".dropDuplicates([" + String.join(", ", cols) + "])\n";
     }
 
     public String buildDrop(JsonNode node) {
-        ArrayNode cols = (ArrayNode) node.get("cols");
+        JsonNode params = getParamsOrSelf(node);
+        ArrayNode cols = (ArrayNode) params.get("cols");
         List<String> parts = new ArrayList<>();
         for (JsonNode c : cols) parts.add(StringUtil.pyString(c.asText()));
-        return "  .drop(" + String.join(", ", parts) + ")\n";
+        return ".drop(" + String.join(", ", parts) + ")\n";
     }
 
     public String buildWithColumnRenamed(JsonNode node) {
-        String src = StringUtil.getText(node, "src", null);
-        String dst = StringUtil.getText(node, "dst", null);
+        JsonNode params = getParamsOrSelf(node);
+        String src = StringUtil.getText(params, "src", null);
+        String dst = StringUtil.getText(params, "dst", null);
         return "  .withColumnRenamed(" + StringUtil.pyString(src) + ", " + StringUtil.pyString(dst) + ")\n";
     }
 
@@ -412,7 +394,8 @@ public class StepBuilder {
 
         List<String> args = new ArrayList<>();
         if (node != null) {
-            JsonNode argsNode = node.get("args");
+            JsonNode params = getParamsOrSelf(node);
+            JsonNode argsNode = params != null ? params.get("args") : null;
             if (argsNode != null && !argsNode.isNull()) {
                 if (argsNode.isArray()) {
                     for (JsonNode arg : argsNode) {
@@ -460,10 +443,11 @@ public class StepBuilder {
         return arg.toString();
     }
 
-    public String buildShowAction(JsonNode node, String dfName) {
-        int n = node.has("n") ? node.get("n").asInt(20) : 20;  // 기본 20행
-        JsonNode truncateNode = node.get("truncate");
-        JsonNode verticalNode = node.get("vertical");
+    public String buildShowAction(JsonNode node) {
+        JsonNode params = getParamsOrSelf(node);
+        int n = params.has("n") ? params.get("n").asInt(20) : 20;  // 기본 20행
+        JsonNode truncateNode = params.get("truncate");
+        JsonNode verticalNode = params.get("vertical");
 
         StringBuilder args = new StringBuilder();
         args.append(n);
@@ -488,7 +472,7 @@ public class StepBuilder {
             }
         }
 
-        return dfName + ".show(" + args + ")\n";
+        return ".show(" + args + ")\n";
     }
 
     private String indentLines(String expr, String indent) {
