@@ -96,19 +96,26 @@ public class StepBuilder {
         String password = StringUtil.getText(node, "password", null);
         String driver = StringUtil.getText(node, "driver", null);
 
-        List<String> predicates = new ArrayList<>();
+        // ---- predicates 처리: 표현식 모드 vs 배열 모드 분리 ----
+        String predicatesExpr = null;              // 그대로 붙일 표현식 (예: [f"... {i}" for i in range(n)])
+        List<String> predicateList = new ArrayList<>(); // ["order_date >= ...", "order_date < ..."]
+
         JsonNode predicateNode = node.hasNonNull("predicate") ? node.get("predicate") : null;
         if (predicateNode == null && node.hasNonNull("predicates")) {
             predicateNode = node.get("predicates");
         }
         if (predicateNode != null && !predicateNode.isNull()) {
-            if (predicateNode.isArray()) {
-                predicateNode.forEach(item -> predicates.add(item.asText()));
-            } else {
-                predicates.add(predicateNode.asText());
+            if (predicateNode.isTextual()) {
+                // 예: "[f\"abs(hashtext(ctid::text)) % 24 = {i}\" for i in range(24)]"
+                // 그대로 predicates=... 로 사용
+                predicatesExpr = predicateNode.asText();
+            } else if (predicateNode.isArray()) {
+                // 예: ["order_date >= ...", "order_date < ..."]
+                predicateNode.forEach(item -> predicateList.add(item.asText()));
             }
         }
 
+        // ---- properties 구축 ----
         List<String> propertyEntries = new ArrayList<>();
         if (user != null) {
             propertyEntries.add(StringUtil.pyString("user") + ": " + StringUtil.pyString(user));
@@ -131,18 +138,26 @@ public class StepBuilder {
             }
         }
 
+        // ---- 최종 spark.read.jdbc(...) 파라미터 조립 ----
         List<String> parameters = new ArrayList<>();
         parameters.add("    url=" + StringUtil.pyString(url));
         if (table != null) {
             parameters.add("    table=" + StringUtil.pyString(table));
         }
-        if (!predicates.isEmpty()) {
-            parameters.add("    predicates=" + formatPredicates(predicates));
+
+        // predicates 표현식 / 배열 모드 구분
+        if (predicatesExpr != null && !predicatesExpr.isEmpty()) {
+            // JSON 에 문자열로 들어온 경우: 그대로 사용
+            // 예: predicates=[f"abs(hashtext(ctid::text)) % 24 = {i}" for i in range(24)]
+            parameters.add("    predicates=" + predicatesExpr);
+        } else if (!predicateList.isEmpty()) {
+            // 예전 방식: 문자열 리스트를 포맷팅
+            parameters.add("    predicates=" + formatPredicates(predicateList));
         }
+
         parameters.add(buildPropertiesParam(propertyEntries));
 
-        return "spark.read.jdbc(\n" + String.join(",\n", parameters) +
-                "\n  )\n";
+        return "spark.read.jdbc(\n" + String.join(",\n", parameters) + "\n  )\n";
     }
 
     private String formatPredicates(List<String> predicates) {
@@ -379,7 +394,7 @@ public class StepBuilder {
         JsonNode params = getParamsOrSelf(node);
         String src = StringUtil.getText(params, "src", null);
         String dst = StringUtil.getText(params, "dst", null);
-        return "  .withColumnRenamed(" + StringUtil.pyString(src) + ", " + StringUtil.pyString(dst) + ")\n";
+        return ".withColumnRenamed(" + StringUtil.pyString(src) + ", " + StringUtil.pyString(dst) + ")\n";
     }
 
     public String buildDefaultStep(String stepName, JsonNode node) {

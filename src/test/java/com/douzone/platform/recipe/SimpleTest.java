@@ -15,102 +15,18 @@ public class SimpleTest {
         String json = "{\n" +
                 "  \"steps\": [\n" +
                 "    {\n" +
-                "      \"input\": \"employees_df1\",\n" +
-                "      \"node\": \"filter\",\n" +
+                "      \"node\": \"load\",\n" +
+                "      \"output\": \"df\",\n" +
                 "      \"params\": {\n" +
-                "        \"condition\": {\n" +
-                "          \"type\": \"op\",\n" +
-                "          \"op\": \">=\",\n" +
-                "          \"left\": {\n" +
-                "            \"type\": \"col\",\n" +
-                "            \"name\": \"age\"\n" +
-                "          },\n" +
-                "          \"right\": {\n" +
-                "            \"type\": \"lit\",\n" +
-                "            \"value\": 25\n" +
-                "          }\n" +
-                "        }\n" +
-                "      },\n" +
-                "      \"output\": \"employees_df1_filter1\"\n" +
-                "    },\n" +
-                "    {\n" +
-                "      \"input\": \"employees_df1_filter1\",\n" +
-                "      \"node\": \"join\",\n" +
-                "      \"params\": {\n" +
-                "        \"right\": \"departments\",\n" +
-                "        \"leftAlias\": \"emp\",\n" +
-                "        \"rightAlias\": \"dept\",\n" +
-                "        \"on\": {\n" +
-                "          \"type\": \"op\",\n" +
-                "          \"op\": \"=\",\n" +
-                "          \"left\": {\n" +
-                "            \"type\": \"col\",\n" +
-                "            \"name\": \"dept_id\",\n" +
-                "            \"table\": \"emp\"\n" +
-                "          },\n" +
-                "          \"right\": {\n" +
-                "            \"type\": \"col\",\n" +
-                "            \"name\": \"id\",\n" +
-                "            \"table\": \"dept\"\n" +
-                "          }\n" +
-                "        }\n" +
-                "      },\n" +
-                "      \"output\": \"employees_df1_filter1_join1\"\n" +
-                "    },\n" +
-                "    {\n" +
-                "      \"input\": \"employees_df1_filter1_join1\",\n" +
-                "      \"node\": \"select\",\n" +
-                "      \"params\": {\n" +
-                "        \"columns\": [\n" +
-                "          {\n" +
-                "            \"expr\": {\n" +
-                "              \"type\": \"col\",\n" +
-                "              \"name\": \"name\",\n" +
-                "              \"table\": \"emp\"\n" +
-                "            }\n" +
-                "          },\n" +
-                "          {\n" +
-                "            \"expr\": {\n" +
-                "              \"type\": \"col\",\n" +
-                "              \"name\": \"dept_name\",\n" +
-                "              \"table\": \"dept\"\n" +
-                "            }\n" +
-                "          },\n" +
-                "          {\n" +
-                "            \"expr\": {\n" +
-                "              \"type\": \"col\",\n" +
-                "              \"name\": \"salary\",\n" +
-                "              \"table\": \"emp\"\n" +
-                "            },\n" +
-                "            \"alias\": \"monthly_salary\"\n" +
-                "          }\n" +
-                "        ]\n" +
-                "      },\n" +
-                "      \"output\": \"employees_df1_filter1_join1_select1\"\n" +
-                "    },\n" +
-                "    {\n" +
-                "      \"input\": \"employees_df1_filter1_join1_select1\",\n" +
-                "      \"node\": \"orderBy\",\n" +
-                "      \"params\": {\n" +
-                "        \"keys\": [\n" +
-                "          {\n" +
-                "            \"expr\": {\n" +
-                "              \"type\": \"col\",\n" +
-                "              \"name\": \"monthly_salary\"\n" +
-                "            },\n" +
-                "            \"asc\": false\n" +
-                "          }\n" +
-                "        ]\n" +
-                "      },\n" +
-                "      \"output\": \"employees_df1_filter1_join1_select1_orderby1\"\n" +
-                "    },\n" +
-                "    {\n" +
-                "      \"input\": \"employees_df1_filter1_join1_select1_orderby1\",\n" +
-                "      \"node\": \"limit\",\n" +
-                "      \"params\": {\n" +
-                "        \"n\": 10\n" +
-                "      },\n" +
-                "      \"output\": \"employees_df1_filter1_join1_select1_orderby1_limit1\"\n" +
+                "        \"table\": \"custom_60106.t_821551_9ea466b673664ef6909550de9ab5375b\",\n" +
+                "        \"type\": \"custom\",\n" +
+                "        \"source\": \"postgres\",\n" +
+                "        \"url\": \"jdbc:postgresql://10.70.167.15:5432/datamart\",\n" +
+                "        \"user\": \"osh8242\",\n" +
+                "        \"password\": \"Dhtmdghks1@\",\n" +
+                "        \"driver\": \"org.postgresql.Driver\",\n" +
+                "        \"predicates\": \"[f'abs(hashtext(ctid::text)) % 24 = {i}' for i in range(24)]\"\n" +
+                "      }\n" +
                 "    }\n" +
                 "  ]\n" +
                 "}";

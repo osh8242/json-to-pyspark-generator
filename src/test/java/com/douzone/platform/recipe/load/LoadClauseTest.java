@@ -179,7 +179,7 @@ class LoadClauseTest {
                 + "        \"driver\": \"org.postgresql.Driver\",\n"
                 + "        \"predicate\": [\n"
                 + "          \"order_date >= '2024-01-01'\",\n"
-                + "          \"order_date < '2024-02-01'\"\n"
+                + "          \"order_date < '2024-01-01'\"\n"
                 + "        ]\n"
                 + "      }\n"
                 + "    }\n"
@@ -193,7 +193,7 @@ class LoadClauseTest {
                         "    table=\"public.orders\",\n" +
                         "    predicates=[\n" +
                         "      \"order_date >= '2024-01-01'\",\n" +
-                        "      \"order_date < '2024-02-01'\"\n" +
+                        "      \"order_date < '2024-01-01'\"\n" +
                         "    ],\n" +
                         "    properties={\n" +
                         "      \"user\": \"app\",\n" +

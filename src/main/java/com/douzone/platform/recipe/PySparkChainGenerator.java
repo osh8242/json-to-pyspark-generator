@@ -246,7 +246,7 @@ public class PySparkChainGenerator {
         ArrayNode steps = (ArrayNode) node.get("steps");
         if (steps != null) {
             for (JsonNode step : steps) {
-                String opName = StringUtil.getText(step, "step", null);
+                String opName = StringUtil.getText(step, "node", null);
                 if ("load".equals(opName)) {
                     collectLoadTables(step, tables);
                 } else if ("join".equals(opName)) {                    // join step: right 처리
