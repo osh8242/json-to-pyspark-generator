@@ -1,5 +1,6 @@
 package com.douzone.platform.recipe.builder;
 
+import com.douzone.platform.recipe.RecipeExpressionException;
 import com.douzone.platform.recipe.util.StringUtil;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
@@ -43,13 +44,21 @@ public class ExpressionBuilder {
             case "isNotNull":
                 return buildIsNotNull(e);
             default:
-                return "None";
+                // 3) 지원하지 않는 type 은 무조건 예외
+                throw new RecipeExpressionException(
+                        "Unsupported expression type: '" + type + "'. expr=" + e
+                );
         }
     }
 
     public String buildCol(JsonNode e) {
         // support table or alias field: {"type":"col", "name":"id", "table":"a"} -> F.col("a.id")
         String name = StringUtil.getText(e, "name", "");
+        if (name == null || name.trim().isEmpty()) {
+            throw new RecipeExpressionException(
+                    "Column expression requires non-empty 'name'. expr=" + e.toString()
+            );
+        }
         String table = StringUtil.getText(e, "table", null);
         if (table != null && !table.isEmpty()) {
             name = table + "." + name;
@@ -67,13 +76,37 @@ public class ExpressionBuilder {
     }
 
     public String buildOp(JsonNode e) {
-        String op = StringUtil.getText(e, "op", "");
-        if ("not".equalsIgnoreCase(op)) {
-            String inner = buildExpr(e.get("expr"));
-            return "(~(" + inner + "))";
+        String op = StringUtil.getText(e, "op", null);
+        if (op == null || op.trim().isEmpty()) {
+            throw new RecipeExpressionException(
+                    "Operator expression requires 'op'. expr=" + e.toString()
+            );
         }
-        String left = buildExpr(e.get("left"));
-        String right = buildExpr(e.get("right"));
+
+        // NOT 단항 연산인 경우
+        if ("not".equalsIgnoreCase(op)) {
+            JsonNode inner = e.get("expr");
+            if (inner == null || inner.isNull()) {
+                throw new RecipeExpressionException(
+                        "'not' operator requires 'expr'. expr=" + e
+                );
+            }
+            String innerStr = buildExpr(inner);
+            return "(~(" + innerStr + "))";
+        }
+
+        // 이외는 이항 연산
+        JsonNode leftNode = e.get("left");
+        JsonNode rightNode = e.get("right");
+        if (leftNode == null || rightNode == null) {
+            throw new RecipeExpressionException(
+                    "Binary operator '" + op + "' requires both 'left' and 'right'. expr=" + e
+            );
+        }
+
+        String left = buildExpr(leftNode);
+        String right = buildExpr(rightNode);
+
         String pyOp;
         switch (op) {
             case "=":
@@ -83,6 +116,7 @@ public class ExpressionBuilder {
             case "<>":
                 pyOp = "!=";
                 break;
+            case "==":
             case ">":
             case "<":
             case ">=":
@@ -103,18 +137,37 @@ public class ExpressionBuilder {
                 pyOp = op;
                 break;
             default:
-                pyOp = op;
+                throw new RecipeExpressionException(
+                        "Unsupported operator: '" + op + "'. expr=" + e
+                );
         }
+
         return "(" + left + " " + pyOp + " " + right + ")";
     }
 
     public String buildFunc(JsonNode e) {
-        String name = StringUtil.getText(e, "name", "");
-        ArrayNode args = (ArrayNode) e.get("args");
+        String name = StringUtil.getText(e, "name", null);
+        if (name == null || name.trim().isEmpty()) {
+            throw new RecipeExpressionException(
+                    "Function expression requires 'name'. expr=" + e.toString()
+            );
+        }
+
+        JsonNode argsNode = e.get("args");
         List<String> parts = new ArrayList<>();
-        if (args != null) for (JsonNode a : args) parts.add(buildExpr(a));
+        if (argsNode != null && argsNode.isArray()) {
+            ArrayNode args = (ArrayNode) argsNode;
+            for (JsonNode a : args) {
+                parts.add(buildExpr(a));
+            }
+        } else if (argsNode != null && !argsNode.isNull()) {
+            // args 가 단일 객체로 들어온 경우도 그냥 하나짜리 arg로 처리
+            parts.add(buildExpr(argsNode));
+        }
+
         return "F." + name + "(" + String.join(", ", parts) + ")";
     }
+
 
     public String buildCase(JsonNode e) {
         ArrayNode when = (ArrayNode) e.get("when");
