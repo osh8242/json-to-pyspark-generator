@@ -106,7 +106,7 @@ public class StepBuilder {
         }
         if (predicateNode != null && !predicateNode.isNull()) {
             if (predicateNode.isTextual()) {
-                // 예: "[f\"abs(hashtext(ctid::text)) % 24 = {i}\" for i in range(24)]"
+                // 예: "[f'abs(hashtext(ctid::text)) % 24 = {i}' for i in range(24)]"
                 // 그대로 predicates=... 로 사용
                 predicatesExpr = predicateNode.asText();
             } else if (predicateNode.isArray()) {
@@ -348,23 +348,6 @@ public class StepBuilder {
         return ".orderBy(" + String.join(", ", parts) + ")\n";
     }
 
-    public String buildToJson(JsonNode node) {
-        JsonNode params = getParamsOrSelf(node);
-        StringBuilder sb = new StringBuilder(".toJSON()");
-        if (params != null && params.has("take") && !params.get("take").isNull()) {
-            JsonNode takeNode = params.get("take");
-            String takeValue;
-            if (takeNode.isIntegralNumber()) {
-                takeValue = String.valueOf(takeNode.longValue());
-            } else {
-                takeValue = takeNode.asText();
-            }
-            sb.append(".take(").append(takeValue).append(")");
-        }
-        sb.append('\n');
-        return sb.toString();
-    }
-
     public String buildLimit(JsonNode node) {
         JsonNode params = getParamsOrSelf(node);
         int n = params.get("n").asInt();
@@ -395,6 +378,108 @@ public class StepBuilder {
         String src = StringUtil.getText(params, "src", null);
         String dst = StringUtil.getText(params, "dst", null);
         return ".withColumnRenamed(" + StringUtil.pyString(src) + ", " + StringUtil.pyString(dst) + ")\n";
+    }
+
+    public String buildPrint(JsonNode node) {
+        JsonNode params = getParamsOrSelf(node);
+
+        String inputDf = StringUtil.getText(node, "input", "df");
+        int n = params.has("n") ? params.get("n").asInt(100) : 100;
+        if (n > 500) n = 500; // 출력 행수 제한 : 최대 500개
+        String format = StringUtil.getText(params, "format", "jsonl");  // 기본 jsonl
+
+        switch (format) {
+            case "jsonl": {
+                // jsonl: header 파라미터가 true 인 경우에만 스키마 JSON 출력
+                boolean header = params.has("header") && params.get("header").asBoolean(false);
+                return buildPrintJsonLines(inputDf, n, header);
+            }
+            case "csv": {
+                // csv: header 기본값은 true 유지
+                boolean header = !params.has("header") || params.get("header").asBoolean(true);
+                String delimiter = StringUtil.getText(params, "delimiter", ",");
+                return buildPrintCsv(inputDf, n, header, delimiter);
+            }
+            case "json":
+            default: {
+                // json: header 파라미터가 true 인 경우에만 스키마 JSON 출력
+                boolean header = params.has("header") && params.get("header").asBoolean(false);
+                return buildPrintJsonArray(inputDf, n, header);
+            }
+        }
+    }
+
+
+    /**
+     * JSON Lines 출력
+     * header 가 true 이면 첫 줄에 {"col":"type", ...} 형태의 스키마 JSON 을 한 줄 출력.
+     */
+    private String buildPrintJsonLines(String inputDf, int n, boolean header) {
+        StringBuilder sb = new StringBuilder();
+
+        if (header) {
+            sb.append("import json\n");
+            sb.append("_schema = ").append(inputDf).append(".dtypes\n");
+            sb.append("_schema_header = {name: dtype for (name, dtype) in _schema}\n");
+            sb.append("print(json.dumps(_schema_header, ensure_ascii=False))\n");
+        }
+
+        sb.append("for line in ")
+                .append(inputDf).append(".limit(").append(n).append(").toJSON().collect():\n")
+                .append("    print(line)\n");
+
+        return sb.toString();
+    }
+
+    /**
+     * JSON 배열 출력
+     * header 가 true 이면 첫 줄에 {"col":"type", ...} 형태의 JSON 스키마를 한 줄 출력.
+     */
+    private String buildPrintJsonArray(String inputDf, int n, boolean header) {
+        StringBuilder sb = new StringBuilder();
+
+        sb.append("import json\n");
+
+        // 데이터 행 먼저 JSON 문자열 리스트로 수집
+        sb.append("_rows = ")
+                .append(inputDf).append(".limit(").append(n).append(").toJSON().collect()\n");
+
+        if (header) {
+            // 스키마 정보 추출 후, 첫 번째 요소로 삽입
+            sb.append("_schema = ").append(inputDf).append(".dtypes\n");
+            sb.append("_schema_header = {name: dtype for (name, dtype) in _schema}\n");
+            sb.append("_data = [_schema_header] + [json.loads(r) for r in _rows]\n");
+        } else {
+            // 헤더 없이 순수 데이터 배열만
+            sb.append("_data = [json.loads(r) for r in _rows]\n");
+        }
+
+        sb.append("print(json.dumps(_data, ensure_ascii=False))\n");
+
+        return sb.toString();
+    }
+
+    /**
+     * CSV 출력
+     * - header: true 이면 첫 줄에 "컬럼명.컬럼타입" 리스트를 CSV 로 출력
+     * - delimiter: CSV 구분자 (기본 ',')
+     */
+    private String buildPrintCsv(String inputDf, int n, boolean header, String delimiter) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("import csv, sys\n");
+        sb.append("_df_preview = ").append(inputDf).append(".limit(").append(n).append(")\n");
+        sb.append("_rows = _df_preview.collect()\n");
+        sb.append("_cols = _df_preview.columns\n");
+        sb.append("_schema = _df_preview.dtypes\n");
+        sb.append("writer = csv.writer(sys.stdout, delimiter='").append(delimiter).append("')\n");
+        if (header) {
+            // ["col1.type1", "col2.type2", ...] 형태로 헤더 생성
+            sb.append("_header = [name + '.' + dtype for (name, dtype) in _schema]\n");
+            sb.append("writer.writerow(_header)\n");
+        }
+        sb.append("for r in _rows:\n");
+        sb.append("    writer.writerow([r[c] for c in _cols])\n");
+        return sb.toString();
     }
 
     public String buildDefaultStep(String stepName, JsonNode node) {

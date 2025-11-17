@@ -79,7 +79,12 @@ public class PySparkChainGenerator {
                     script.append(inputDf);
                     script.append(stepBuilder.buildShowAction(node));  // ".show(...)\n"
                     continue;
+                } else if ("print".equals(opName)) {
+                    // show 와 마찬가지로 action 이라 대입문 없이 한 줄짜리 블록 생성
+                    script.append(stepBuilder.buildPrint(node));
+                    continue;
                 }
+
 
                 // 2) 나머지 node 들은 변환이므로 "out = in.xxx()" 형태로 생성
                 if (outputDf == null || outputDf.isEmpty()) {
@@ -122,9 +127,6 @@ public class PySparkChainGenerator {
                     case "orderBy":
                     case "sort":
                         script.append(stepBuilder.buildOrderBy(node));
-                        break;
-                    case "toJSON":
-                        script.append(stepBuilder.buildToJson(node));
                         break;
                     case "limit":
                         script.append(stepBuilder.buildLimit(node));
@@ -198,9 +200,6 @@ public class PySparkChainGenerator {
                 case "orderBy":
                 case "sort":
                     sb.append(stepBuilder.buildOrderBy(step));
-                    break;
-                case "toJSON":
-                    sb.append(stepBuilder.buildToJson(step));
                     break;
                 case "limit":
                     sb.append(stepBuilder.buildLimit(step));
