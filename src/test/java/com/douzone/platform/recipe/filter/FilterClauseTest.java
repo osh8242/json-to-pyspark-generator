@@ -340,6 +340,50 @@ public class FilterClauseTest {
     }
 
     @Test
+    @DisplayName("Filter: tuple isin 테스트")
+    void testFilterWithTupleIsin() throws Exception {
+        String json = "{\n"
+                + "  \"steps\": [\n"
+                + "    {\n"
+                + "      \"node\": \"filter\",\n"
+                + "      \"input\": \"df\",\n"
+                + "      \"output\": \"df_filtered\",\n"
+                + "      \"params\": {\n"
+                + "        \"condition\": {\n"
+                + "          \"type\": \"isin\",\n"
+                + "          \"expr\": [\n"
+                + "            { \"type\": \"col\", \"name\": \"col1\" },\n"
+                + "            { \"type\": \"col\", \"name\": \"col2\" }\n"
+                + "          ],\n"
+                + "          \"values\": [\n"
+                + "            [\n"
+                + "              { \"type\": \"lit\", \"value\": \"v1\" },\n"
+                + "              { \"type\": \"lit\", \"value\": \"x1\" }\n"
+                + "            ],\n"
+                + "            [\n"
+                + "              { \"type\": \"lit\", \"value\": \"v2\" },\n"
+                + "              { \"type\": \"lit\", \"value\": \"x2\" }\n"
+                + "            ]\n"
+                + "          ]\n"
+                + "        }\n"
+                + "      }\n"
+                + "    }\n"
+                + "  ]\n"
+                + "}";
+
+        String expected =
+                "df_filtered = df.filter((F.struct(F.col(\"col1\"), F.col(\"col2\"))).isin("
+                        + "F.struct(F.lit(\"v1\"), F.lit(\"x1\")), "
+                        + "F.struct(F.lit(\"v2\"), F.lit(\"x2\"))))\n";
+
+        String actual = PySparkChainGenerator.generate(json);
+
+        printTestInfo("testFilterWithTupleIsin", json, actual);
+        assertEquals(expected, actual);
+    }
+
+
+    @Test
     @DisplayName("Filter: NOT isin 테스트")
     void testFilterWithNotIsin() throws Exception {
         String json = "{\n"

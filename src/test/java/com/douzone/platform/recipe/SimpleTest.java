@@ -13,23 +13,46 @@ public class SimpleTest {
     @Test
     public void simpleTest() throws Exception {
         String json = "{\n" +
-                "  \"steps\": [\n" +
-                "    {\n" +
-                "      \"node\": \"load\",\n" +
-                "      \"output\": \"df\",\n" +
-                "      \"params\": {\n" +
-                "        \"table\": \"custom_60106.t_821551_9ea466b673664ef6909550de9ab5375b\",\n" +
-                "        \"type\": \"custom\",\n" +
-                "        \"source\": \"postgres\",\n" +
-                "        \"url\": \"jdbc:postgresql://10.70.167.15:5432/datamart\",\n" +
-                "        \"user\": \"osh8242\",\n" +
-                "        \"password\": \"Dhtmdghks1@\",\n" +
-                "        \"driver\": \"org.postgresql.Driver\",\n" +
-                "        \"predicates\": \"[f'abs(hashtext(ctid::text)) % 24 = {i}' for i in range(24)]\"\n" +
-                "      }\n" +
-                "    }\n" +
-                "  ]\n" +
-                "}";
+                "        \"steps\": [\n" +
+                "            {\n" +
+                "                \"node\": \"load\",\n" +
+                "                \"output\": \"df\",\n" +
+                "                \"params\": {\n" +
+                "                    \"table\": \"t_821551_9ea466b673664ef6909550de9ab5375b\",\n" +
+                "                    \"type\": \"custom\",\n" +
+                "                    \"key\": \"0d4bc8e826c771886784223a2b7fc9326df1fdf9a21239d32bcdfa77d07aa3f3\"\n" +
+                "                }\n" +
+                "            },\n" +
+                "            {\n" +
+                "                \"input\": \"df\",\n" +
+                "                \"node\": \"select\",\n" +
+                "                \"output\": \"df_select\",\n" +
+                "                \"params\": {\n" +
+                "                    \"columns\": [\n" +
+                "                        {\n" +
+                "                            \"expr\": {\n" +
+                "                                \"type\": \"col\",\n" +
+                "                                \"name\": \"t1_ptno\"\n" +
+                "                            }\n" +
+                "                        },\n" +
+                "                        {\n" +
+                "                            \"expr\": {\n" +
+                "                                \"type\": \"col\",\n" +
+                "                                \"name\": \"t1_btdt\"\n" +
+                "                            }\n" +
+                "                        }\n" +
+                "                    ]\n" +
+                "                }\n" +
+                "            },\n" +
+                "            {\n" +
+                "                \"input\": \"df_select\",\n" +
+                "                \"node\": \"show\",\n" +
+                "                \"params\": {\n" +
+                "                    \"n\": 50\n" +
+                "                }\n" +
+                "            }\n" +
+                "        ]\n" +
+                "    }";
         System.out.println("json = " + json);
         String generate = PySparkChainGenerator.generate(json);
         System.out.println("============ generate ============\n" + generate);

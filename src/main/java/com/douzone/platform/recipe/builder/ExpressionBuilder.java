@@ -211,15 +211,64 @@ public class ExpressionBuilder {
 
     /**
      * 'isin' 표현식을 생성합니다.
-     * JSON 예시: { "type": "isin", "expr": {...}, "values": [{...}, {...}] }
+     *
+     * 스칼라 예시:
+     * {
+     *   "type": "isin",
+     *   "expr": { ... },
+     *   "values": [ { ... }, { ... } ]
+     * }
+     *  => (expr).isin(v1, v2)
+     *
+     * 튜플 예시:
+     * {
+     *   "type": "isin",
+     *   "expr": [ { ... }, { ... } ],
+     *   "values": [
+     *     [ { ... }, { ... } ],
+     *     [ { ... }, { ... } ]
+     *   ]
+     * }
+     *  => struct(expr1, expr2).isin(
+     *         struct(v1a, v2a),
+     *         struct(v1b, v2b)
+     *     )
      */
     private String buildIsin(JsonNode e) {
-        String exprPart = buildExpr(e.get("expr"));
+        JsonNode exprNode = e.get("expr");
+
+        // expr 가 배열이면 (col1, col2, ...) 튜플로 해석
+        boolean tupleMode = exprNode != null && exprNode.isArray();
+
+        String exprPart;
+        if (tupleMode) {
+            // 튜플의 각 요소를 buildExpr 한 뒤 struct(...) 로 감싸기
+            List<String> exprItems = new ArrayList<>();
+            for (JsonNode item : exprNode) {
+                exprItems.add(buildExpr(item));
+            }
+            exprPart = "F.struct(" + String.join(", ", exprItems) + ")"; // struct(col1, col2, ...)
+        } else {
+            // 기존 스칼라 모드
+            exprPart = buildExpr(exprNode);
+        }
+
         ArrayNode values = (ArrayNode) e.get("values");
         List<String> valueParts = new ArrayList<>();
+
         if (values != null) {
-            for (JsonNode val : values) {
-                valueParts.add(buildExpr(val));
+            for (JsonNode v : values) {
+                if (tupleMode) {
+                    // values[i] 도 배열: [ v1, v2, ... ] → struct(v1, v2, ...)
+                    List<String> items = new ArrayList<>();
+                    for (JsonNode item : v) {
+                        items.add(buildExpr(item));
+                    }
+                    valueParts.add("F.struct(" + String.join(", ", items) + ")");
+                } else {
+                    // 기존 스칼라 모드
+                    valueParts.add(buildExpr(v));
+                }
             }
         }
 
