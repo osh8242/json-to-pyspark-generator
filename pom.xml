@@ -6,7 +6,7 @@
 
     <groupId>com.douzone.platform</groupId>
     <artifactId>json-to-pyspark-generator</artifactId>
-    <version>2.2</version>
+    <version>2.3</version>
 
     <properties>
         <maven.compiler.source>8</maven.compiler.source>

@@ -83,6 +83,9 @@ public class PySparkChainGenerator {
                     // show 와 마찬가지로 action 이라 대입문 없이 한 줄짜리 블록 생성
                     script.append(stepBuilder.buildPrint(node));
                     continue;
+                } else if ("save".equals(opName)) {
+                    script.append(stepBuilder.buildSave(node));
+                    continue;
                 }
 
 

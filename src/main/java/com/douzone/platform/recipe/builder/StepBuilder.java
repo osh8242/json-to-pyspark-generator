@@ -197,6 +197,72 @@ public class StepBuilder {
         return sb.toString();
     }
 
+    // StepBuilder 내부라고 가정
+    public String buildSave(JsonNode node) {
+        JsonNode params = getParamsOrSelf(node);
+        String inputDf = StringUtil.getText(node, "input", "df");
+        String source = StringUtil.getText(params, "source", "postgres");
+
+        switch (source.toLowerCase()) {
+            case "postgres":
+            case "postgresql":
+                return buildSavePostgres(inputDf, params);
+            default:
+                // 기본 generic JDBC 저장으로 처리
+                return buildSaveGenericJdbc(inputDf, params);
+        }
+    }
+
+    private String buildSavePostgres(String inputDf, JsonNode params) {
+        String mode = StringUtil.getText(params, "mode", "append");
+        JsonNode options = params.get("options");
+
+        StringBuilder sb = new StringBuilder();
+        sb.append(inputDf).append(".write.format(\"jdbc\")");
+
+        if (options != null && options.isObject()) {
+            options.fieldNames().forEachRemaining(key -> {
+                String value = options.get(key).asText();
+                sb.append(".option(\"")
+                        .append(key)
+                        .append("\", \"")
+                        .append(value)
+                        .append("\")");
+            });
+        }
+
+        sb.append(".mode(\"").append(mode).append("\").save()\n");
+        return sb.toString();
+    }
+
+
+    private String buildSaveGenericJdbc(String inputDf, JsonNode params) {
+        String format = StringUtil.getText(params, "format", "jdbc");  // 기본 jdbc
+        String mode = StringUtil.getText(params, "mode", "append");
+
+        StringBuilder sb = new StringBuilder();
+        sb.append(inputDf).append(".write.format(\"").append(format).append("\")");
+
+        JsonNode options = params.get("options");
+        if (options != null && options.isObject()) {
+            options.fieldNames().forEachRemaining(key -> {
+                String value = options.get(key).asText();
+                sb.append(".option(\"")
+                        .append(key)
+                        .append("\", \"")
+                        .append(value)
+                        .append("\")");
+            });
+        }
+
+        if (mode != null && !mode.isEmpty()) {
+            sb.append(".mode(\"").append(mode).append("\")");
+        }
+
+        sb.append(".save()\n");
+        return sb.toString();
+    }
+
     public String buildSelect(JsonNode node) {
         JsonNode params = getParamsOrSelf(node);
         ArrayNode cols = (ArrayNode) params.get("columns");
