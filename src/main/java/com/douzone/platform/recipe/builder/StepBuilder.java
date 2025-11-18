@@ -390,7 +390,7 @@ public class StepBuilder {
 
     public String buildGroupBy(JsonNode node) {
         JsonNode params = getParamsOrSelf(node);
-        ArrayNode keys = getRequiredArray(params, "keys", "groupBy");
+        ArrayNode keys = (ArrayNode) params.get("keys");
         List<String> parts = new ArrayList<>();
         for (JsonNode k : keys) parts.add(expressionBuilder.buildExpr(k));
         return ".groupBy(" + String.join(", ", parts) + ")\n";

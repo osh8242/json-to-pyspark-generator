@@ -147,4 +147,42 @@ public class GroupbyClauseTest {
         assertEquals(expected, actual);
     }
 
+    @Test
+    @DisplayName("GroupBy: 전체 집계를 위한 빈 그룹화")
+    void testGroupByForGlobalAggregation() throws Exception {
+        String json = "{\n"
+                + "  \"steps\": [\n"
+                + "    {\n"
+                + "      \"node\": \"groupBy\",\n"
+                + "      \"input\": \"df\",\n"
+                + "      \"output\": \"df_grouped\",\n"
+                + "      \"params\": {\n"
+                + "        \"keys\": []\n"
+                + "      }\n"
+                + "    },\n"
+                + "    {\n"
+                + "      \"node\": \"agg\",\n"
+                + "      \"input\": \"df_grouped\",\n"
+                + "      \"output\": \"df_aggregated\",\n"
+                + "      \"params\": {\n"
+                + "        \"aggs\": [\n"
+                + "          { \"expr\": { \"type\": \"func\", \"name\": \"count\", \"args\": [ { \"type\": \"lit\", \"value\": 1 } ] }, \"alias\": \"total_count\" }\n"
+                + "        ]\n"
+                + "      }\n"
+                + "    }\n"
+                + "  ]\n"
+                + "}";
+
+        String expected = ""
+                + "df_grouped = df.groupBy()\n"
+                + "df_aggregated = df_grouped.agg(\n"
+                + "      F.count(F.lit(1)).alias(\"total_count\")\n"
+                + "  )\n";
+
+        String actual = PySparkChainGenerator.generate(json);
+
+        printTestInfo("testGroupByForGlobalAggregation", json, actual);
+        assertEquals(expected, actual);
+    }
+
 }
