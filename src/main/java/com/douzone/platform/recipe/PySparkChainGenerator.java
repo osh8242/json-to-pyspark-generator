@@ -24,11 +24,17 @@ public class PySparkChainGenerator {
      * 외부에서 호출하는 정적 진입점 메서드입니다.
      */
     public static String generate(String json) throws Exception {
+        if (json == null || json.trim().isEmpty()) {
+            throw new RecipeStepException("Recipe JSON must not be empty.");
+        }
         PySparkChainGenerator generator = new PySparkChainGenerator();
         return generator.generatePySparkCode(json);
     }
 
     public static String generate(JsonNode json) throws Exception {
+        if (json == null) {
+            throw new RecipeStepException("Recipe JSON must not be null.");
+        }
         PySparkChainGenerator generator = new PySparkChainGenerator();
         return generator.generatePySparkCode(json);
     }
@@ -60,7 +66,16 @@ public class PySparkChainGenerator {
     }
 
     public String generatePySparkCode(JsonNode root) throws Exception {
-        ArrayNode steps = (ArrayNode) root.get("steps");
+        if (root == null || root.isNull()) {
+            throw new RecipeStepException("Recipe JSON must not be null.");
+        }
+
+        JsonNode stepsNode = root.get("steps");
+        if (stepsNode == null || !stepsNode.isArray()) {
+            throw new RecipeStepException("Recipe JSON must contain a 'steps' array.");
+        }
+
+        ArrayNode steps = (ArrayNode) stepsNode;
 
         StringBuilder script = new StringBuilder();
 
