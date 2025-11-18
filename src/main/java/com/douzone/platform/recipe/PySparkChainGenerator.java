@@ -91,12 +91,7 @@ public class PySparkChainGenerator {
             // 1) show 는 action 이라 대입문 없이 한 줄짜리 statement 로 생성
             switch (opName) {
                 case "show":
-                    script.append(inputDf);
-                    script.append(stepBuilder.buildShowAction(node));  // ".show(...)\n"
-                    continue;
-                case "print":
-                    // show 와 마찬가지로 action 이라 대입문 없이 한 줄짜리 블록 생성
-                    script.append(stepBuilder.buildPrint(node));
+                    script.append(stepBuilder.buildShowAction(node));
                     continue;
                 case "save":
                     script.append(stepBuilder.buildSave(node));
