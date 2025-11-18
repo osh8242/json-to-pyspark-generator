@@ -18,6 +18,7 @@ public class SimpleTest {
                 "                \"node\": \"load\",\n" +
                 "                \"output\": \"df\",\n" +
                 "                \"params\": {\n" +
+                "                    \"source\": \"postgres\",\n" +
                 "                    \"table\": \"t_821551_9ea466b673664ef6909550de9ab5375b\",\n" +
                 "                    \"type\": \"custom\",\n" +
                 "                    \"key\": \"0d4bc8e826c771886784223a2b7fc9326df1fdf9a21239d32bcdfa77d07aa3f3\"\n" +

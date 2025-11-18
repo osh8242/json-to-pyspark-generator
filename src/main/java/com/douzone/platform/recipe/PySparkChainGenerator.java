@@ -24,11 +24,17 @@ public class PySparkChainGenerator {
      * 외부에서 호출하는 정적 진입점 메서드입니다.
      */
     public static String generate(String json) throws Exception {
+        if (json == null || json.trim().isEmpty()) {
+            throw new RecipeStepException("Recipe JSON must not be empty.");
+        }
         PySparkChainGenerator generator = new PySparkChainGenerator();
         return generator.generatePySparkCode(json);
     }
 
     public static String generate(JsonNode json) throws Exception {
+        if (json == null) {
+            throw new RecipeStepException("Recipe JSON must not be null.");
+        }
         PySparkChainGenerator generator = new PySparkChainGenerator();
         return generator.generatePySparkCode(json);
     }
@@ -60,96 +66,104 @@ public class PySparkChainGenerator {
     }
 
     public String generatePySparkCode(JsonNode root) throws Exception {
-        ArrayNode steps = (ArrayNode) root.get("steps");
+        if (root == null || root.isNull()) {
+            throw new RecipeStepException("Recipe JSON must not be null.");
+        }
+
+        JsonNode stepsNode = root.get("steps");
+        if (stepsNode == null || !stepsNode.isArray()) {
+            throw new RecipeStepException("Recipe JSON must contain a 'steps' array.");
+        }
+
+        ArrayNode steps = (ArrayNode) stepsNode;
 
         StringBuilder script = new StringBuilder();
 
-        if (steps != null) {
-            for (JsonNode node : steps) {
-                String opName = StringUtil.getText(node, "node", null);
-                if (opName == null) {
-                    continue;
-                }
+        for (JsonNode node : steps) {
+            String opName = StringUtil.getText(node, "node", null);
+            if (opName == null) {
+                continue;
+            }
 
-                String inputDf = StringUtil.getText(node, "input", "");
-                String outputDf = StringUtil.getText(node, "output", null);
+            String inputDf = StringUtil.getText(node, "input", "");
+            String outputDf = StringUtil.getText(node, "output", null);
 
-                // 1) show 는 action 이라 대입문 없이 한 줄짜리 statement 로 생성
-                if ("show".equals(opName)) {
+            // 1) show 는 action 이라 대입문 없이 한 줄짜리 statement 로 생성
+            switch (opName) {
+                case "show":
                     script.append(inputDf);
                     script.append(stepBuilder.buildShowAction(node));  // ".show(...)\n"
                     continue;
-                } else if ("print".equals(opName)) {
+                case "print":
                     // show 와 마찬가지로 action 이라 대입문 없이 한 줄짜리 블록 생성
                     script.append(stepBuilder.buildPrint(node));
                     continue;
-                } else if ("save".equals(opName)) {
+                case "save":
                     script.append(stepBuilder.buildSave(node));
                     continue;
-                }
+            }
 
 
-                // 2) 나머지 node 들은 변환이므로 "out = in.xxx()" 형태로 생성
-                if (outputDf == null || outputDf.isEmpty()) {
-                    // output 이 없으면 in-place 갱신 (df = df.xxx())
-                    outputDf = inputDf;
-                }
+            // 2) 나머지 node 들은 변환이므로 "out = in.xxx()" 형태로 생성
+            if (outputDf == null || outputDf.isEmpty()) {
+                // output 이 없으면 in-place 갱신 (df = df.xxx())
+                outputDf = inputDf;
+            }
 
-                // 대입문 헤더
-                script.append(outputDf)
-                        .append(" = ")
-                        .append(inputDf);
+            // 대입문 헤더
+            script.append(outputDf)
+                    .append(" = ")
+                    .append(inputDf);
 
-                // 뒤에 체인 메서드 붙이기
-                switch (opName) {
-                    case "load":
-                        script.append(stepBuilder.buildLoad(node));
-                        break;
-                    case "select":
-                        script.append(stepBuilder.buildSelect(node));
-                        break;
-                    case "withColumn":
-                        script.append(stepBuilder.buildWithColumn(node));
-                        break;
-                    case "withColumns":
-                        script.append(stepBuilder.buildWithColumns(node));
-                        break;
-                    case "filter":
-                    case "where":
-                        script.append(stepBuilder.buildFilter(node));
-                        break;
-                    case "join":
-                        script.append(stepBuilder.buildJoin(node));
-                        break;
-                    case "groupBy":
-                        script.append(stepBuilder.buildGroupBy(node));
-                        break;
-                    case "agg":
-                        script.append(stepBuilder.buildAgg(node));
-                        break;
-                    case "orderBy":
-                    case "sort":
-                        script.append(stepBuilder.buildOrderBy(node));
-                        break;
-                    case "limit":
-                        script.append(stepBuilder.buildLimit(node));
-                        break;
-                    case "distinct":
-                        script.append(".distinct()\n");
-                        break;
-                    case "dropDuplicates":
-                        script.append(stepBuilder.buildDropDuplicates(node));
-                        break;
-                    case "drop":
-                        script.append(stepBuilder.buildDrop(node));
-                        break;
-                    case "withColumnRenamed":
-                        script.append(stepBuilder.buildWithColumnRenamed(node));
-                        break;
-                    default:
-                        script.append(stepBuilder.buildDefaultStep(opName, node));
-                        break;
-                }
+            // 뒤에 체인 메서드 붙이기
+            switch (opName) {
+                case "load":
+                    script.append(stepBuilder.buildLoad(node));
+                    break;
+                case "select":
+                    script.append(stepBuilder.buildSelect(node));
+                    break;
+                case "withColumn":
+                    script.append(stepBuilder.buildWithColumn(node));
+                    break;
+                case "withColumns":
+                    script.append(stepBuilder.buildWithColumns(node));
+                    break;
+                case "filter":
+                case "where":
+                    script.append(stepBuilder.buildFilter(node));
+                    break;
+                case "join":
+                    script.append(stepBuilder.buildJoin(node));
+                    break;
+                case "groupBy":
+                    script.append(stepBuilder.buildGroupBy(node));
+                    break;
+                case "agg":
+                    script.append(stepBuilder.buildAgg(node));
+                    break;
+                case "orderBy":
+                case "sort":
+                    script.append(stepBuilder.buildOrderBy(node));
+                    break;
+                case "limit":
+                    script.append(stepBuilder.buildLimit(node));
+                    break;
+                case "distinct":
+                    script.append(".distinct()\n");
+                    break;
+                case "dropDuplicates":
+                    script.append(stepBuilder.buildDropDuplicates(node));
+                    break;
+                case "drop":
+                    script.append(stepBuilder.buildDrop(node));
+                    break;
+                case "withColumnRenamed":
+                    script.append(stepBuilder.buildWithColumnRenamed(node));
+                    break;
+                default:
+                    script.append(stepBuilder.buildDefaultStep(opName, node));
+                    break;
             }
         }
         return script.toString();
@@ -268,22 +282,6 @@ public class PySparkChainGenerator {
                 // 다른 step은 테이블 생성 안 하므로 무시
             }
         }
-    }
-
-    private String formatBaseExpression(String baseExpression) {
-        if (baseExpression == null) {
-            baseExpression = "df";
-        }
-        String[] lines = baseExpression.split("\\r?\\n", -1);
-        StringBuilder sb = new StringBuilder();
-        for (int i = 0; i < lines.length; i++) {
-            String line = lines[i];
-            if (i == lines.length - 1 && line.isEmpty()) {
-                continue;
-            }
-            sb.append("  ").append(line).append("\n");
-        }
-        return sb.toString();
     }
 
     private void collectLoadTables(JsonNode step, Set<String> tables) {

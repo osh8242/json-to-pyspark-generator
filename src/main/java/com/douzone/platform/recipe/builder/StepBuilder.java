@@ -1,6 +1,7 @@
 package com.douzone.platform.recipe.builder;
 
 import com.douzone.platform.recipe.PySparkChainGenerator;
+import com.douzone.platform.recipe.RecipeStepException;
 import com.douzone.platform.recipe.util.StringUtil;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
@@ -37,13 +38,13 @@ public class StepBuilder {
 
     public String buildLoad(JsonNode node) {
         if (node == null) {
-            return null;
+            throw new RecipeStepException("Load step requires parameters.");
         }
 
         JsonNode params = getParamsOrSelf(node);
         String source = StringUtil.getText(params, "source", null);
-        if (source == null) {
-            return null;
+        if (source == null || source.trim().isEmpty()) {
+            throw new RecipeStepException("Load step requires a 'source' field.");
         }
 
         switch (source.toLowerCase()) {
@@ -53,7 +54,7 @@ public class StepBuilder {
             case "postgresql":
                 return buildPostgresLoad(params);
             default:
-                return null;
+                throw new RecipeStepException("Unsupported load source: " + source);
         }
     }
 
@@ -62,8 +63,8 @@ public class StepBuilder {
         String namespace = StringUtil.getText(node, "namespace", null);
         String table = StringUtil.getText(node, "table", null);
 
-        if (table == null) {
-            return null;
+        if (table == null || table.trim().isEmpty()) {
+            throw new RecipeStepException("Iceberg load requires 'table'.");
         }
 
         StringBuilder identifier = new StringBuilder();
@@ -128,6 +129,7 @@ public class StepBuilder {
         }
 
         JsonNode optionsNode = node.get("options");
+        boolean hasTableDefinition = table != null && !table.isEmpty();
         if (optionsNode != null && optionsNode.isObject()) {
             List<String> optionNames = new ArrayList<>();
             optionsNode.fieldNames().forEachRemaining(optionNames::add);
@@ -135,7 +137,16 @@ public class StepBuilder {
             for (String name : optionNames) {
                 JsonNode value = optionsNode.get(name);
                 propertyEntries.add(StringUtil.pyString(name) + ": " + StringUtil.pyString(value.asText()));
+                if (!hasTableDefinition && ("dbtable".equalsIgnoreCase(name)
+                        || "table".equalsIgnoreCase(name)
+                        || "query".equalsIgnoreCase(name))) {
+                    hasTableDefinition = true;
+                }
             }
+        }
+
+        if (!hasTableDefinition) {
+            throw new RecipeStepException("Postgres load requires 'table' or JDBC options defining the table/query.");
         }
 
         // ---- 최종 spark.read.jdbc(...) 파라미터 조립 ----
@@ -265,7 +276,7 @@ public class StepBuilder {
 
     public String buildSelect(JsonNode node) {
         JsonNode params = getParamsOrSelf(node);
-        ArrayNode cols = (ArrayNode) params.get("columns");
+        ArrayNode cols = getRequiredArray(params, "columns", "select");
         List<String> parts = new ArrayList<>();
         for (JsonNode col : cols) {
             JsonNode e = col.get("expr");
@@ -277,14 +288,18 @@ public class StepBuilder {
 
     public String buildWithColumn(JsonNode node) {
         JsonNode params = getParamsOrSelf(node);
-        String name = StringUtil.getText(params, "name", null);
-        String expr = expressionBuilder.buildExpr(params != null ? params.get("expr") : null);
+        String name = requireText(params, "name", "withColumn");
+        JsonNode exprNode = requireNode(params, "expr", "withColumn");
+        String expr = expressionBuilder.buildExpr(exprNode);
         return ".withColumn(" + StringUtil.pyString(name) + ", " + expr + ")\n";
     }
 
     public String buildWithColumns(JsonNode node) {
         JsonNode params = getParamsOrSelf(node);
-        JsonNode cols = params.get("cols");
+        JsonNode cols = requireNode(params, "cols", "withColumns");
+        if (!cols.isObject() || cols.isEmpty()) {
+            throw new RecipeStepException("withColumns step requires a non-empty 'cols' object.");
+        }
         List<String> kv = new ArrayList<>();
         cols.fieldNames().forEachRemaining(k -> {
             String v = expressionBuilder.buildExpr(cols.get(k));
@@ -296,7 +311,8 @@ public class StepBuilder {
 
     public String buildFilter(JsonNode node) {
         JsonNode params = getParamsOrSelf(node);
-        String cond = expressionBuilder.buildExpr(params.get("condition"));
+        JsonNode condition = requireNode(params, "condition", "filter");
+        String cond = expressionBuilder.buildExpr(condition);
         return ".filter(" + cond + ")\n";
     }
 
@@ -305,13 +321,13 @@ public class StepBuilder {
      */
     public String buildJoin(JsonNode node) throws Exception {
         JsonNode params = getParamsOrSelf(node);
-        JsonNode rightNode = params != null ? params.get("right") : null;
+        JsonNode rightNode = requireNode(params, "right", "join");
         String how = StringUtil.getText(params, "how", "inner");
         String leftAlias = StringUtil.getText(params, "leftAlias", null);
         String rightAlias = StringUtil.getText(params, "rightAlias", null);
 
         // ON 조건 생성
-        JsonNode on = params != null ? params.get("on") : null;
+        JsonNode on = params.get("on");
         String onExpr;
         if (on == null || on.isNull()) {
             onExpr = "None";
@@ -374,7 +390,7 @@ public class StepBuilder {
 
     public String buildGroupBy(JsonNode node) {
         JsonNode params = getParamsOrSelf(node);
-        ArrayNode keys = (ArrayNode) params.get("keys");
+        ArrayNode keys = getRequiredArray(params, "keys", "groupBy");
         List<String> parts = new ArrayList<>();
         for (JsonNode k : keys) parts.add(expressionBuilder.buildExpr(k));
         return ".groupBy(" + String.join(", ", parts) + ")\n";
@@ -382,7 +398,7 @@ public class StepBuilder {
 
     public String buildAgg(JsonNode node) {
         JsonNode params = getParamsOrSelf(node);
-        ArrayNode aggs = (ArrayNode) params.get("aggs");
+        ArrayNode aggs = getRequiredArray(params, "aggs", "agg");
         List<String> parts = new ArrayList<>();
         for (JsonNode agg : aggs) {
             JsonNode e = agg.get("expr");
@@ -394,7 +410,7 @@ public class StepBuilder {
 
     public String buildOrderBy(JsonNode node) {
         JsonNode params = getParamsOrSelf(node);
-        ArrayNode keys = (ArrayNode) params.get("keys");
+        ArrayNode keys = getRequiredArray(params, "keys", "orderBy");
         List<String> parts = new ArrayList<>();
         for (JsonNode k : keys) {
             String expr = expressionBuilder.buildExpr(k.get("expr"));
@@ -416,7 +432,11 @@ public class StepBuilder {
 
     public String buildLimit(JsonNode node) {
         JsonNode params = getParamsOrSelf(node);
-        int n = params.get("n").asInt();
+        JsonNode nNode = requireNode(params, "n", "limit");
+        if (!nNode.canConvertToInt()) {
+            throw new RecipeStepException("limit step requires numeric 'n'.");
+        }
+        int n = nNode.asInt();
         return ".limit(" + n + ")\n";
     }
 
@@ -433,7 +453,7 @@ public class StepBuilder {
 
     public String buildDrop(JsonNode node) {
         JsonNode params = getParamsOrSelf(node);
-        ArrayNode cols = (ArrayNode) params.get("cols");
+        ArrayNode cols = getRequiredArray(params, "cols", "drop");
         List<String> parts = new ArrayList<>();
         for (JsonNode c : cols) parts.add(StringUtil.pyString(c.asText()));
         return ".drop(" + String.join(", ", parts) + ")\n";
@@ -441,8 +461,8 @@ public class StepBuilder {
 
     public String buildWithColumnRenamed(JsonNode node) {
         JsonNode params = getParamsOrSelf(node);
-        String src = StringUtil.getText(params, "src", null);
-        String dst = StringUtil.getText(params, "dst", null);
+        String src = requireText(params, "src", "withColumnRenamed");
+        String dst = requireText(params, "dst", "withColumnRenamed");
         return ".withColumnRenamed(" + StringUtil.pyString(src) + ", " + StringUtil.pyString(dst) + ")\n";
     }
 
@@ -654,6 +674,34 @@ public class StepBuilder {
             sb.append(indent).append(line).append("\n");
         }
         return sb.toString();
+    }
+
+    private ArrayNode getRequiredArray(JsonNode params, String fieldName, String stepName) {
+        JsonNode node = requireNode(params, fieldName, stepName);
+        if (!node.isArray() || node.isEmpty()) {
+            throw new RecipeStepException(stepName + " step requires non-empty array field '" + fieldName + "'.");
+        }
+        return (ArrayNode) node;
+    }
+
+    private JsonNode requireNode(JsonNode params, String fieldName, String stepName) {
+        if (params == null) {
+            throw new RecipeStepException(stepName + " step requires parameters.");
+        }
+        JsonNode node = params.get(fieldName);
+        if (node == null || node.isNull()) {
+            throw new RecipeStepException(stepName + " step requires field '" + fieldName + "'.");
+        }
+        return node;
+    }
+
+    private String requireText(JsonNode params, String fieldName, String stepName) {
+        JsonNode node = requireNode(params, fieldName, stepName);
+        String value = node.asText(null);
+        if (value == null || value.trim().isEmpty()) {
+            throw new RecipeStepException(stepName + " step requires non-empty field '" + fieldName + "'.");
+        }
+        return value;
     }
 
 }
