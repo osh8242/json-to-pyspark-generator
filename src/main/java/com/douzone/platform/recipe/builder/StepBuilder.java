@@ -297,7 +297,7 @@ public class StepBuilder {
     public String buildWithColumns(JsonNode node) {
         JsonNode params = getParamsOrSelf(node);
         JsonNode cols = requireNode(params, "cols", "withColumns");
-        if (!cols.isObject() || cols.size() == 0) {
+        if (!cols.isObject() || cols.isEmpty()) {
             throw new RecipeStepException("withColumns step requires a non-empty 'cols' object.");
         }
         List<String> kv = new ArrayList<>();
@@ -327,7 +327,7 @@ public class StepBuilder {
         String rightAlias = StringUtil.getText(params, "rightAlias", null);
 
         // ON 조건 생성
-        JsonNode on = params != null ? params.get("on") : null;
+        JsonNode on = params.get("on");
         String onExpr;
         if (on == null || on.isNull()) {
             onExpr = "None";
@@ -678,7 +678,7 @@ public class StepBuilder {
 
     private ArrayNode getRequiredArray(JsonNode params, String fieldName, String stepName) {
         JsonNode node = requireNode(params, fieldName, stepName);
-        if (!node.isArray() || node.size() == 0) {
+        if (!node.isArray() || node.isEmpty()) {
             throw new RecipeStepException(stepName + " step requires non-empty array field '" + fieldName + "'.");
         }
         return (ArrayNode) node;

@@ -211,7 +211,7 @@ public class ExpressionBuilder {
 
     /**
      * 'isin' 표현식을 생성합니다.
-     *
+     * <p>
      * 스칼라 예시:
      * {
      *   "type": "isin",
@@ -219,7 +219,7 @@ public class ExpressionBuilder {
      *   "values": [ { ... }, { ... } ]
      * }
      *  => (expr).isin(v1, v2)
-     *
+     * <p>
      * 튜플 예시:
      * {
      *   "type": "isin",

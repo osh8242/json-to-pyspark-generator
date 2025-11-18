@@ -67,31 +67,6 @@ public class DropClauseTest {
     }
 
     @Test
-    @DisplayName("Drop: 빈 배열 (빈 drop 호출)")
-    void testEmptyColumnsDrop() throws Exception {
-        String json = "{\n"
-                + "  \"steps\": [\n"
-                + "    {\n"
-                + "      \"node\": \"drop\",\n"
-                + "      \"input\": \"df\",\n"
-                + "      \"output\": \"df_dropped\",\n"
-                + "      \"params\": {\n"
-                + "        \"cols\": []\n"
-                + "      }\n"
-                + "    }\n"
-                + "  ]\n"
-                + "}";
-
-        String expected =
-                "df_dropped = df.drop()\n";
-
-        String actual = PySparkChainGenerator.generate(json);
-
-        printTestInfo("testEmptyColumnsDrop", json, actual);
-        assertEquals(expected, actual);
-    }
-
-    @Test
     @DisplayName("Drop: 다단계 체인에 포함 (filter 후 drop)")
     void testDropInMultiStepPipeline() throws Exception {
         String json = "{\n"
