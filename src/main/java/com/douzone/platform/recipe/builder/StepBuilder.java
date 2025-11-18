@@ -451,7 +451,6 @@ public class StepBuilder {
 
         String inputDf = StringUtil.getText(node, "input", "df");
         int n = params.has("n") ? params.get("n").asInt(100) : 100;
-        if (n > 500) n = 500; // 출력 행수 제한 : 최대 500개
         String format = StringUtil.getText(params, "format", "jsonl");  // 기본 jsonl
 
         switch (format) {
