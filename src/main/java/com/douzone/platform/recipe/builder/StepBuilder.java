@@ -466,40 +466,11 @@ public class StepBuilder {
         return ".withColumnRenamed(" + StringUtil.pyString(src) + ", " + StringUtil.pyString(dst) + ")\n";
     }
 
-    public String buildPrint(JsonNode node) {
-        JsonNode params = getParamsOrSelf(node);
-
-        String inputDf = StringUtil.getText(node, "input", "df");
-        int n = params.has("n") ? params.get("n").asInt(100) : 100;
-        String format = StringUtil.getText(params, "format", "jsonl");  // 기본 jsonl
-
-        switch (format) {
-            case "jsonl": {
-                // jsonl: header 파라미터가 true 인 경우에만 스키마 JSON 출력
-                boolean header = params.has("header") && params.get("header").asBoolean(false);
-                return buildPrintJsonLines(inputDf, n, header);
-            }
-            case "csv": {
-                // csv: header 기본값은 true 유지
-                boolean header = !params.has("header") || params.get("header").asBoolean(true);
-                String delimiter = StringUtil.getText(params, "delimiter", ",");
-                return buildPrintCsv(inputDf, n, header, delimiter);
-            }
-            case "json":
-            default: {
-                // json: header 파라미터가 true 인 경우에만 스키마 JSON 출력
-                boolean header = params.has("header") && params.get("header").asBoolean(false);
-                return buildPrintJsonArray(inputDf, n, header);
-            }
-        }
-    }
-
-
     /**
      * JSON Lines 출력
      * header 가 true 이면 첫 줄에 {"col":"type", ...} 형태의 스키마 JSON 을 한 줄 출력.
      */
-    private String buildPrintJsonLines(String inputDf, int n, boolean header) {
+    private String buildShowJsonLines(String inputDf, int n, boolean header) {
         StringBuilder sb = new StringBuilder();
 
         if (header) {
@@ -520,7 +491,7 @@ public class StepBuilder {
      * JSON 배열 출력
      * header 가 true 이면 첫 줄에 {"col":"type", ...} 형태의 JSON 스키마를 한 줄 출력.
      */
-    private String buildPrintJsonArray(String inputDf, int n, boolean header) {
+    private String buildShowJsonArray(String inputDf, int n, boolean header) {
         StringBuilder sb = new StringBuilder();
 
         sb.append("import json\n");
@@ -549,7 +520,7 @@ public class StepBuilder {
      * - header: true 이면 첫 줄에 "컬럼명.컬럼타입" 리스트를 CSV 로 출력
      * - delimiter: CSV 구분자 (기본 ',')
      */
-    private String buildPrintCsv(String inputDf, int n, boolean header, String delimiter) {
+    private String buildShowCsv(String inputDf, int n, boolean header, String delimiter) {
         StringBuilder sb = new StringBuilder();
         sb.append("import csv, sys\n");
         sb.append("_df_preview = ").append(inputDf).append(".limit(").append(n).append(")\n");
@@ -630,9 +601,16 @@ public class StepBuilder {
 
     public String buildShowAction(JsonNode node) {
         JsonNode params = getParamsOrSelf(node);
-        int n = params.has("n") ? params.get("n").asInt(20) : 20;  // 기본 20행
-        JsonNode truncateNode = params.get("truncate");
-        JsonNode verticalNode = params.get("vertical");
+        String inputDf = StringUtil.getText(node, "input", "df");
+        String format = params != null ? StringUtil.getText(params, "format", null) : null;
+
+        if (format != null && !format.trim().isEmpty()) {
+            return buildFormattedShow(inputDf, params, format);
+        }
+
+        int n = params != null && params.has("n") ? params.get("n").asInt(20) : 20;  // 기본 20행
+        JsonNode truncateNode = params != null ? params.get("truncate") : null;
+        JsonNode verticalNode = params != null ? params.get("vertical") : null;
 
         StringBuilder args = new StringBuilder();
         args.append(n);
@@ -657,7 +635,29 @@ public class StepBuilder {
             }
         }
 
-        return ".show(" + args + ")\n";
+        return inputDf + ".show(" + args + ")\n";
+    }
+
+    private String buildFormattedShow(String inputDf, JsonNode params, String formatRaw) {
+        int n = params != null && params.has("n") ? params.get("n").asInt(100) : 100;
+        String normalized = formatRaw.trim().toLowerCase();
+
+        switch (normalized) {
+            case "jsonl": {
+                boolean header = params != null && params.has("header") && params.get("header").asBoolean(false);
+                return buildShowJsonLines(inputDf, n, header);
+            }
+            case "csv": {
+                boolean header = params == null || !params.has("header") || params.get("header").asBoolean(true);
+                String delimiter = params != null ? StringUtil.getText(params, "delimiter", ",") : ",";
+                return buildShowCsv(inputDf, n, header, delimiter);
+            }
+            case "json":
+            default: {
+                boolean header = params != null && params.has("header") && params.get("header").asBoolean(false);
+                return buildShowJsonArray(inputDf, n, header);
+            }
+        }
     }
 
     private String indentLines(String expr, String indent) {

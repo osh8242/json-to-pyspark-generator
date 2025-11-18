@@ -1,13 +1,13 @@
 # JSON to PySpark Generator
 
 A lightweight Java library that turns a structured JSON "recipe" into executable PySpark DataFrame code.  
-It is designed for low-code data pipelines where a UI or another service emits JSON describing a sequence of Spark operations (load, select, filter, join, etc.). The library parses that JSON and produces fully formatted PySpark scripts, including recursive sub-queries, expression building, and helper actions such as `show`, `print`, and `save`.
+It is designed for low-code data pipelines where a UI or another service emits JSON describing a sequence of Spark operations (load, select, filter, join, etc.). The library parses that JSON and produces fully formatted PySpark scripts, including recursive sub-queries, expression building, and helper actions such as `show` (table preview or JSON/CSV emit), and `save`.
 
 ## Key features
 - **Step-by-step PySpark generation** – `PySparkChainGenerator` walks through every `steps[]` entry (load, select, filter, join, groupBy, agg, orderBy, limit, distinct, drop, withColumn*, etc.) and emits idiomatic chained DataFrame code.
 - **Rich expression builder** – Supports columns, literals, binary/boolean ops, nested functions, CASE, BETWEEN, IS IN (tuple aware), LIKE, and (is) null checks via `ExpressionBuilder`.
 - **Recursive joins & sub-queries** – A join's `right` side can itself be a nested recipe; the generator handles aliasing and indentation automatically.
-- **Action helpers** – Non-assignment actions such as `show`, `print` (JSON/JSONL/CSV), and `save` (JDBC/Postgres) are rendered as standalone statements.
+- **Action helpers** – Non-assignment actions such as `show` (classic `.show()` preview or JSON/JSONL/CSV dumps) and `save` (JDBC/Postgres) are rendered as standalone statements.
 - **Table discovery** – `PySparkChainGenerator.extractTables(json)` scans inputs, loads, and joins to list all referenced tables/dataframes for lineage and dependency analysis.
 
 ## Project layout

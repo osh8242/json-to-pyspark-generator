@@ -13,19 +13,19 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
  * -----------------------------------------------------------
  * 2025. 11. 17.        osh8242       최초 생성
  */
-public class PrintTest {
+public class ShowFormatTest {
 
     // =========================
     // JSONL 관련 테스트
     // =========================
 
     @Test
-    @DisplayName("Print(JSONL): df 에서 상위 N개를 JSON Lines 로 출력 (기본, header=false)")
-    void testPrintJsonLinesWithN() throws Exception {
+    @DisplayName("Show(JSONL): df 에서 상위 N개를 JSON Lines 로 출력 (기본, header=false)")
+    void testShowJsonLinesWithN() throws Exception {
         String json = "{\n"
                 + "  \"steps\": [\n"
                 + "    {\n"
-                + "      \"node\": \"print\",\n"
+                + "      \"node\": \"show\",\n"
                 + "      \"input\": \"df\",\n"
                 + "      \"params\": {\n"
                 + "        \"n\": 100,\n"
@@ -41,17 +41,17 @@ public class PrintTest {
 
         String actual = PySparkChainGenerator.generate(json);
 
-        printTestInfo("testPrintJsonLinesWithN", json, actual);
+        printTestInfo("testShowJsonLinesWithN", json, actual);
         assertEquals(expected, actual);
     }
 
     @Test
-    @DisplayName("Print(JSONL): n, format 미지정 시 기본값 사용 (format=jsonl, n=100, header=false)")
-    void testPrintJsonLinesDefaultParams() throws Exception {
+    @DisplayName("Show(JSONL): n, format 미지정 시 기본값 사용 (format=jsonl, n=100, header=false)")
+    void testShowJsonLinesDefaultParams() throws Exception {
         String json = "{\n"
                 + "  \"steps\": [\n"
                 + "    {\n"
-                + "      \"node\": \"print\",\n"
+                + "      \"node\": \"show\",\n"
                 + "      \"input\": \"df\"\n"
                 + "    }\n"
                 + "  ]\n"
@@ -63,17 +63,17 @@ public class PrintTest {
 
         String actual = PySparkChainGenerator.generate(json);
 
-        printTestInfo("testPrintJsonLinesDefaultParams", json, actual);
+        printTestInfo("testShowJsonLinesDefaultParams", json, actual);
         assertEquals(expected, actual);
     }
 
     @Test
-    @DisplayName("Print(JSONL): 커스텀 input DataFrame 에 대해 출력 (header=false)")
-    void testPrintJsonLinesCustomInput() throws Exception {
+    @DisplayName("Show(JSONL): 커스텀 input DataFrame 에 대해 출력 (header=false)")
+    void testShowJsonLinesCustomInput() throws Exception {
         String json = "{\n"
                 + "  \"steps\": [\n"
                 + "    {\n"
-                + "      \"node\": \"print\",\n"
+                + "      \"node\": \"show\",\n"
                 + "      \"input\": \"df_result\",\n"
                 + "      \"params\": {\n"
                 + "        \"n\": 50,\n"
@@ -89,13 +89,13 @@ public class PrintTest {
 
         String actual = PySparkChainGenerator.generate(json);
 
-        printTestInfo("testPrintJsonLinesCustomInput", json, actual);
+        printTestInfo("testShowJsonLinesCustomInput", json, actual);
         assertEquals(expected, actual);
     }
 
     @Test
-    @DisplayName("Print(JSONL): select 이후 결과에 대해 JSON Lines 출력 (header=false)")
-    void testSelectThenPrintJsonLines() throws Exception {
+    @DisplayName("Show(JSONL): select 이후 결과에 대해 JSON Lines 출력 (header=false)")
+    void testSelectThenShowJsonLines() throws Exception {
         String json = "{\n"
                 + "  \"steps\": [\n"
                 + "    {\n"
@@ -110,7 +110,7 @@ public class PrintTest {
                 + "      }\n"
                 + "    },\n"
                 + "    {\n"
-                + "      \"node\": \"print\",\n"
+                + "      \"node\": \"show\",\n"
                 + "      \"input\": \"df_selected\",\n"
                 + "      \"params\": {\n"
                 + "        \"n\": 10,\n"
@@ -127,17 +127,17 @@ public class PrintTest {
 
         String actual = PySparkChainGenerator.generate(json);
 
-        printTestInfo("testSelectThenPrintJsonLines", json, actual);
+        printTestInfo("testSelectThenShowJsonLines", json, actual);
         assertEquals(expected, actual);
     }
 
     @Test
-    @DisplayName("Print(JSONL): header=true 인 경우 스키마 JSON + JSON Lines 출력")
-    void testPrintJsonLinesWithHeader() throws Exception {
+    @DisplayName("Show(JSONL): header=true 인 경우 스키마 JSON + JSON Lines 출력")
+    void testShowJsonLinesWithHeader() throws Exception {
         String json = "{\n"
                 + "  \"steps\": [\n"
                 + "    {\n"
-                + "      \"node\": \"print\",\n"
+                + "      \"node\": \"show\",\n"
                 + "      \"input\": \"df\",\n"
                 + "      \"params\": {\n"
                 + "        \"n\": 10,\n"
@@ -158,7 +158,7 @@ public class PrintTest {
 
         String actual = PySparkChainGenerator.generate(json);
 
-        printTestInfo("testPrintJsonLinesWithHeader", json, actual);
+        printTestInfo("testShowJsonLinesWithHeader", json, actual);
         assertEquals(expected, actual);
     }
 
@@ -167,12 +167,12 @@ public class PrintTest {
     // =========================
 
     @Test
-    @DisplayName("Print(JSON Array): JSON 배열 형식으로 출력 (header=false)")
-    void testPrintJsonArray() throws Exception {
+    @DisplayName("Show(JSON Array): JSON 배열 형식으로 출력 (header=false)")
+    void testShowJsonArray() throws Exception {
         String json = "{\n"
                 + "  \"steps\": [\n"
                 + "    {\n"
-                + "      \"node\": \"print\",\n"
+                + "      \"node\": \"show\",\n"
                 + "      \"input\": \"df\",\n"
                 + "      \"params\": {\n"
                 + "        \"n\": 5,\n"
@@ -190,17 +190,17 @@ public class PrintTest {
 
         String actual = PySparkChainGenerator.generate(json);
 
-        printTestInfo("testPrintJsonArray", json, actual);
+        printTestInfo("testShowJsonArray", json, actual);
         assertEquals(expected, actual);
     }
 
     @Test
-    @DisplayName("Print(JSON Array): header=true 인 경우 [스키마 JSON, 데이터...] 배열 출력")
-    void testPrintJsonArrayWithHeader() throws Exception {
+    @DisplayName("Show(JSON Array): header=true 인 경우 [스키마 JSON, 데이터...] 배열 출력")
+    void testShowJsonArrayWithHeader() throws Exception {
         String json = "{\n"
                 + "  \"steps\": [\n"
                 + "    {\n"
-                + "      \"node\": \"print\",\n"
+                + "      \"node\": \"show\",\n"
                 + "      \"input\": \"df\",\n"
                 + "      \"params\": {\n"
                 + "        \"n\": 5,\n"
@@ -221,7 +221,7 @@ public class PrintTest {
 
         String actual = PySparkChainGenerator.generate(json);
 
-        printTestInfo("testPrintJsonArrayWithHeader", json, actual);
+        printTestInfo("testShowJsonArrayWithHeader", json, actual);
         assertEquals(expected, actual);
     }
 
@@ -230,12 +230,12 @@ public class PrintTest {
     // =========================
 
     @Test
-    @DisplayName("Print(CSV): 헤더 포함 CSV 형식으로 출력 (컬럼명.컬럼타입)")
-    void testPrintCsvWithHeader() throws Exception {
+    @DisplayName("Show(CSV): 헤더 포함 CSV 형식으로 출력 (컬럼명.컬럼타입)")
+    void testShowCsvWithHeader() throws Exception {
         String json = "{\n"
                 + "  \"steps\": [\n"
                 + "    {\n"
-                + "      \"node\": \"print\",\n"
+                + "      \"node\": \"show\",\n"
                 + "      \"input\": \"df\",\n"
                 + "      \"params\": {\n"
                 + "        \"n\": 10,\n"
@@ -260,17 +260,17 @@ public class PrintTest {
 
         String actual = PySparkChainGenerator.generate(json);
 
-        printTestInfo("testPrintCsvWithHeader", json, actual);
+        printTestInfo("testShowCsvWithHeader", json, actual);
         assertEquals(expected, actual);
     }
 
     @Test
-    @DisplayName("Print(CSV): 헤더 없이 CSV 형식으로 출력")
-    void testPrintCsvWithoutHeader() throws Exception {
+    @DisplayName("Show(CSV): 헤더 없이 CSV 형식으로 출력")
+    void testShowCsvWithoutHeader() throws Exception {
         String json = "{\n"
                 + "  \"steps\": [\n"
                 + "    {\n"
-                + "      \"node\": \"print\",\n"
+                + "      \"node\": \"show\",\n"
                 + "      \"input\": \"df_result\",\n"
                 + "      \"params\": {\n"
                 + "        \"n\": 3,\n"
@@ -293,17 +293,17 @@ public class PrintTest {
 
         String actual = PySparkChainGenerator.generate(json);
 
-        printTestInfo("testPrintCsvWithoutHeader", json, actual);
+        printTestInfo("testShowCsvWithoutHeader", json, actual);
         assertEquals(expected, actual);
     }
 
     @Test
-    @DisplayName("Print(CSV): 커스텀 구분자와 헤더(컬럼명.컬럼타입)로 CSV 출력")
-    void testPrintCsvWithCustomDelimiter() throws Exception {
+    @DisplayName("Show(CSV): 커스텀 구분자와 헤더(컬럼명.컬럼타입)로 CSV 출력")
+    void testShowCsvWithCustomDelimiter() throws Exception {
         String json = "{\n"
                 + "  \"steps\": [\n"
                 + "    {\n"
-                + "      \"node\": \"print\",\n"
+                + "      \"node\": \"show\",\n"
                 + "      \"input\": \"df\",\n"
                 + "      \"params\": {\n"
                 + "        \"n\": 10,\n"
@@ -329,7 +329,7 @@ public class PrintTest {
 
         String actual = PySparkChainGenerator.generate(json);
 
-        printTestInfo("testPrintCsvWithCustomDelimiter", json, actual);
+        printTestInfo("testShowCsvWithCustomDelimiter", json, actual);
         assertEquals(expected, actual);
     }
 
