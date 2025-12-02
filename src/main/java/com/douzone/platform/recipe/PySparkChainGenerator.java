@@ -11,6 +11,13 @@ import lombok.Getter;
 import java.util.HashSet;
 import java.util.Set;
 
+/**
+ * JSON 기반 레시피를 PySpark 코드로 변환하는 메인 엔진.
+ * <p>
+ * - 외부 진입점: static generate(String / JsonNode)
+ * - steps 배열을 순차적으로 실행 가능한 PySpark 코드로 변환
+ * - join 서브쿼리, load/save, show 등 특수 스텝 지원
+ */
 public class PySparkChainGenerator {
 
     private final StepBuilder stepBuilder;
@@ -22,7 +29,7 @@ public class PySparkChainGenerator {
     }
 
     /**
-     * 외부에서 호출하는 정적 진입점 메서드입니다.
+     * 외부에서 호출하는 정적 진입점 메서드입니다. (문자열 JSON)
      */
     public static String generate(String json) throws Exception {
         if (json == null || json.trim().isEmpty()) {
@@ -32,6 +39,9 @@ public class PySparkChainGenerator {
         return generator.generatePySparkCode(json);
     }
 
+    /**
+     * 외부에서 호출하는 정적 진입점 메서드입니다. (JsonNode)
+     */
     public static String generate(JsonNode json) throws Exception {
         if (json == null) {
             throw new RecipeStepException("Recipe JSON must not be null.");
@@ -41,12 +51,16 @@ public class PySparkChainGenerator {
     }
 
     /**
-     * JSON 파라미터에서 테이블 목록을 추출합니다.
-     * - input 필드와 join step의 right 테이블(문자열 또는 sub-JSON input)을 재귀적으로 수집.
-     * - 중복 제거된 Set으로 반환.
+     * JSON 파라미터에서 DataFrame/테이블/쿼리 식별자를 추출합니다.
+     * <p>
+     * - input 필드 (기본 df)
+     * - load step의 table/dbtable/query 등
+     * - join step의 right (문자열 또는 sub-JSON input)
+     * <p>
+     * 을 재귀적으로 수집하여 중복 없는 Set 으로 반환합니다.
      *
      * @param json JSON 문자열
-     * @return 테이블 이름들의 Set (예: {"df", "orders_df", "users_df"})
+     * @return 식별자 이름들의 Set (예: {"df", "orders_df", "users_df", "catalog.db.table", "public.orders"})
      * @throws Exception JSON 파싱 또는 처리 오류 시
      */
     public static Set<String> extractTables(String json) throws Exception {
@@ -58,14 +72,18 @@ public class PySparkChainGenerator {
     }
 
     /**
-     * 실제 코드 생성을 담당하는 인스턴스 메서드입니다.
-     * PySpark 스크립트의 전체적인 틀(import, out = ...)을 생성합니다.
+     * JSON 문자열을 받아 PySpark 코드로 변환합니다.
      */
     public String generatePySparkCode(String json) throws Exception {
         JsonNode root = om.readTree(json);
         return generatePySparkCode(root);
     }
 
+    /**
+     * JsonNode를 받아 PySpark 코드로 변환합니다.
+     * - 상단에 import 헤더를 포함합니다.
+     * - steps 배열을 순차적으로 처리하여 body를 생성합니다.
+     */
     public String generatePySparkCode(JsonNode root) throws Exception {
         if (root == null || root.isNull()) {
             throw new RecipeStepException("Recipe JSON must not be null.");
@@ -80,25 +98,40 @@ public class PySparkChainGenerator {
 
         StringBuilder script = new StringBuilder();
 
+        // 1) 각 step 을 순차적으로 코드로 변환
         for (JsonNode node : steps) {
             String opName = StringUtil.getText(node, "node", null);
             if (opName == null) {
                 continue;
             }
 
-            String inputDf = StringUtil.getText(node, "input", "");
+            String inputDf = StringUtil.getText(node, "input", "df");
             String outputDf = StringUtil.getText(node, "output", null);
 
-            // 1) show 는 action 이라 대입문 없이 한 줄짜리 statement 로 생성
+            // 1-1) Action 류: show / save
             switch (opName) {
                 case "show":
                     script.append(stepBuilder.buildShowAction(node));
                     continue;
+                case "print":
+                    script.append(stepBuilder.buildPrint(node));
+                    continue;
                 case "save":
                     script.append(stepBuilder.buildSave(node));
                     continue;
+                case "load":
+                    // 1-2) load 스텝은 항상 새로운 소스 DF 를 생성하는 스텝으로 처리
+                    // inputDf 는 무시하고, output 이 없으면 inputDf 또는 기본 df 를 사용
+                    if (outputDf == null || outputDf.isEmpty()) {
+                        outputDf = (inputDf != null && !inputDf.isEmpty()) ? inputDf : "df";
+                    }
+                    script.append(outputDf)
+                            .append(" = ")
+                            .append(stepBuilder.buildLoad(node));
+                    continue;
+                default:
+                    // 나머지는 아래에서 일반 변환 스텝으로 처리
             }
-
 
             // 2) 나머지 node 들은 변환이므로 "out = in.xxx()" 형태로 생성
             if (outputDf == null || outputDf.isEmpty()) {
@@ -113,9 +146,6 @@ public class PySparkChainGenerator {
 
             // 뒤에 체인 메서드 붙이기
             switch (opName) {
-                case "load":
-                    script.append(stepBuilder.buildLoad(node));
-                    break;
                 case "select":
                     script.append(stepBuilder.buildSelect(node));
                     break;
@@ -158,6 +188,7 @@ public class PySparkChainGenerator {
                     script.append(stepBuilder.buildWithColumnRenamed(node));
                     break;
                 default:
+                    // 미리 정의되지 않은 스텝은 generic 체인 메서드로 처리
                     script.append(stepBuilder.buildDefaultStep(opName, node));
                     break;
             }
@@ -168,6 +199,8 @@ public class PySparkChainGenerator {
     /**
      * steps 배열을 받아 체인 메서드 문자열을 생성하는 재귀적 핵심 로직입니다.
      * 이 메서드는 순수하게 메서드 체인(.filter(...).join(...)) 부분만 생성합니다.
+     * <p>
+     * join 서브쿼리(right JSON) 등의 상황에서 사용됩니다.
      */
     public ChainBuildResult buildChain(String inputDf, ArrayNode steps) throws Exception {
         String baseExpression = inputDf;
@@ -183,6 +216,7 @@ public class PySparkChainGenerator {
 
             switch (opName) {
                 case "load":
+                    // 서브 체인의 소스 DF 지정
                     String loadExpr = stepBuilder.buildLoad(step);
                     if (loadExpr != null && !loadExpr.isEmpty()) {
                         baseExpression = loadExpr;
@@ -220,6 +254,9 @@ public class PySparkChainGenerator {
                 case "show":
                     // show는 action이므로 체인에 포함하지 않음
                     break;
+                case "print":
+                    // print도 action이므로 체인에 포함하지 않음
+                    break;
                 case "distinct":
                     sb.append(".distinct()\n");
                     break;
@@ -242,7 +279,7 @@ public class PySparkChainGenerator {
     }
 
     /**
-     * 인스턴스 메서드로 JSON 노드에서 테이블을 재귀적으로 수집합니다.
+     * steps JSON 노드에서 DataFrame/테이블 식별자를 재귀적으로 수집합니다.
      * - 외부 호출은 static extractTables 사용 권장.
      */
     private void collectTables(JsonNode node, Set<String> tables) {
@@ -261,11 +298,12 @@ public class PySparkChainGenerator {
                 String opName = StringUtil.getText(step, "node", null);
                 if ("load".equals(opName)) {
                     collectLoadTables(step, tables);
-                } else if ("join".equals(opName)) {                    // join step: right 처리
+                } else if ("join".equals(opName)) {
+                    // join step: right 처리
                     JsonNode rightNode = getStepField(step, "right");
                     if (rightNode != null && !rightNode.isNull()) {
                         if (rightNode.isTextual()) {
-                            // right가 문자열: 테이블 이름 추가
+                            // right가 문자열: 식별자 추가
                             tables.add(rightNode.asText());
                         } else if (rightNode.isObject()) {
                             // right가 객체: input 추가 + 재귀 steps 검사
@@ -275,7 +313,7 @@ public class PySparkChainGenerator {
                         }
                     }
                 }
-                // 다른 step은 테이블 생성 안 하므로 무시
+                // 다른 step은 별도 식별자 생성 안 하므로 무시
             }
         }
     }

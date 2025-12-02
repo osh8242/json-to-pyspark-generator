@@ -564,7 +564,7 @@ public class StepBuilder {
         }
 
         String joinedArgs = String.join(", ", args);
-        return "  ." + normalized + "(" + joinedArgs + ")\n";
+        return "." + normalized + "(" + joinedArgs + ")\n";
     }
 
     private String buildDefaultArgument(JsonNode arg) {
@@ -636,6 +636,86 @@ public class StepBuilder {
         }
 
         return inputDf + ".show(" + args + ")\n";
+    }
+
+    public String buildPrint(JsonNode node) {
+        JsonNode params = getParamsOrSelf(node);
+        JsonNode argsNode = params != null ? params.get("args") : null;
+
+        // 인자가 아예 없으면 단순 print()
+        if (argsNode == null || argsNode.isNull()) {
+            return "print()\n";
+        }
+
+        List<String> argExprs = new ArrayList<>();
+
+        if (argsNode.isArray()) {
+            if (argsNode.isEmpty()) {
+                // 빈 배열이면 역시 print()
+                return "print()\n";
+            }
+            for (JsonNode arg : argsNode) {
+                argExprs.add(buildPrintArg(arg));
+            }
+        } else {
+            // 단일 값도 허용 (배열이 아닌 경우 단일 인자로 간주)
+            argExprs.add(buildPrintArg(argsNode));
+        }
+
+        String sep = params != null ? StringUtil.getText(params, "sep", null) : null;
+        String end = params != null ? StringUtil.getText(params, "end", null) : null;
+
+        StringBuilder sb = new StringBuilder();
+        sb.append("print(").append(String.join(", ", argExprs));
+
+        if (sep != null) {
+            sb.append(", sep=").append(StringUtil.pyString(sep));
+        }
+        if (end != null) {
+            sb.append(", end=").append(StringUtil.pyString(end));
+        }
+
+        sb.append(")\n");
+        return sb.toString();
+    }
+
+    /**
+     * print 인자 하나를 PySpark 코드 조각으로 변환
+     * - 문자열: 그대로 사용 (변수/표현식)
+     * - {kind: "literal", value: "..."} → Python 문자열 리터럴
+     * - {kind: "var", name: "..."} → 변수 이름
+     */
+    private String buildPrintArg(JsonNode arg) {
+        if (arg == null || arg.isNull()) {
+            return "None";
+        }
+
+        // "args": ["df_count", "df2_count"] 처럼 문자열이면 그대로 사용
+        if (arg.isTextual()) {
+            return arg.asText();
+        }
+
+        if (arg.isObject()) {
+            String kind = StringUtil.getText(arg, "kind", "var");
+            switch (kind) {
+                case "literal": {
+                    String value = StringUtil.getText(arg, "value", "");
+                    return StringUtil.pyString(value);
+                }
+                case "var": {
+                    String name = StringUtil.getText(arg, "name", null);
+                    if (name == null || name.trim().isEmpty()) {
+                        throw new RecipeStepException("print step: 'var' kind requires 'name'.");
+                    }
+                    return name;
+                }
+                default:
+                    // raw 제거: literal / var 외에는 전부 에러
+                    throw new RecipeStepException("print step: unsupported kind '" + kind + "'.");
+            }
+        }
+
+        throw new RecipeStepException("print step: each arg must be string or object.");
     }
 
     private String buildFormattedShow(String inputDf, JsonNode params, String formatRaw) {
