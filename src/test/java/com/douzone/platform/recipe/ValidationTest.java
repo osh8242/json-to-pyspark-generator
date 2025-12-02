@@ -1,5 +1,6 @@
 package com.douzone.platform.recipe;
 
+import com.douzone.platform.recipe.exception.RecipeStepException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 

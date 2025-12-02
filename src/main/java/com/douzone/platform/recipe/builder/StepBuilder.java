@@ -1,7 +1,7 @@
 package com.douzone.platform.recipe.builder;
 
 import com.douzone.platform.recipe.PySparkChainGenerator;
-import com.douzone.platform.recipe.RecipeStepException;
+import com.douzone.platform.recipe.exception.RecipeStepException;
 import com.douzone.platform.recipe.util.StringUtil;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;

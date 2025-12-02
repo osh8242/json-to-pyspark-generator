@@ -1,4 +1,4 @@
-package com.douzone.platform.recipe;
+package com.douzone.platform.recipe.exception;
 
 public class RecipeExpressionException extends RuntimeException {
 

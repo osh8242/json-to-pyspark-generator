@@ -1,4 +1,4 @@
-package com.douzone.platform.recipe;
+package com.douzone.platform.recipe.exception;
 
 /**
  * Runtime exception thrown when a recipe step definition is invalid or

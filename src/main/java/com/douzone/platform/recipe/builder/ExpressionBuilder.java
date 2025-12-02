@@ -1,6 +1,6 @@
 package com.douzone.platform.recipe.builder;
 
-import com.douzone.platform.recipe.RecipeExpressionException;
+import com.douzone.platform.recipe.exception.RecipeExpressionException;
 import com.douzone.platform.recipe.util.StringUtil;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
