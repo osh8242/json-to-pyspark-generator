@@ -25,7 +25,6 @@ public class StepBuilder {
         this.mainGenerator = mainGenerator;
     }
 
-
     private JsonNode getParamsOrSelf(JsonNode node) {
         if (node != null && node.has("params")) {
             JsonNode params = node.get("params");
@@ -246,7 +245,6 @@ public class StepBuilder {
         return sb.toString();
     }
 
-
     private String buildSaveGenericJdbc(String inputDf, JsonNode params) {
         String format = StringUtil.getText(params, "format", "jdbc");  // 기본 jdbc
         String mode = StringUtil.getText(params, "mode", "append");
@@ -314,6 +312,51 @@ public class StepBuilder {
         JsonNode condition = requireNode(params, "condition", "filter");
         String cond = expressionBuilder.buildExpr(condition);
         return ".filter(" + cond + ")\n";
+    }
+
+    /**
+     * fileFilter:
+     * - input DF 를 타겟 테이블로 보고,
+     * - params 에서 objectKey, bucket, filterColumn 을 받아
+     * - S3 CSV 에 있는 값들만 남도록 inner join 체인을 생성.
+     * <p>
+     * JSON 예시:
+     * {
+     * "node": "fileFilter",
+     * "input": "orders_df",
+     * "output": "orders_filtered",
+     * "params": {
+     * "objectKey": "tmp/order_ids.csv",
+     * "bucket": "my-bucket",
+     * "filterColumn": "order_id"
+     * }
+     * }
+     */
+    public String buildFileFilter(JsonNode node) {
+        JsonNode params = getParamsOrSelf(node);
+        String objectKey = requireText(params, "objectKey", "fileFilter");
+        String bucket = requireText(params, "bucket", "fileFilter");
+        String filterColumn = requireText(params, "filterColumn", "fileFilter");
+
+        // s3a://bucket/objectKey 형태 경로 구성
+        StringBuilder pathBuilder = new StringBuilder("s3a://");
+        pathBuilder.append(bucket);
+        if (!bucket.endsWith("/") && !objectKey.startsWith("/")) {
+            pathBuilder.append("/");
+        }
+        pathBuilder.append(objectKey);
+        String path = pathBuilder.toString();
+
+        return ".join(\n" +
+                "  spark.read.format(\"csv\")\n" +
+                "    .option(\"header\", \"true\")\n" +
+                "    .option(\"inferSchema\", \"true\")\n" +
+                "    .load(" + StringUtil.pyString(path) + ")\n" +
+                "    .select(" + StringUtil.pyString(filterColumn) + ")\n" +
+                "    .distinct(),\n" +
+                "  " + StringUtil.pyString(filterColumn) + ",\n" +
+                "  " + StringUtil.pyString("inner") + "\n" +
+                ")\n";
     }
 
     /**

@@ -15,13 +15,23 @@ public class SimpleTest {
         String json = "{\n" +
                 "        \"steps\": [\n" +
                 "            {\n" +
-                "                \"input\": \"df\",\n" +
-                "                \"output\": \"result_df\",\n" +
-                "                \"node\": \"count\"\n" +
+                "                \"input\": \"df_select\",\n" +
+                "                \"node\": \"fileFilter\",\n" +
+                "                \"output\": \"df_select_filtered\",\n" +
+                "                \"params\": {\n" +
+                "                    \"objectKey\": \"tmp/pms/4053ff9a-8ec9-49ce-986c-69885c3de12b\",\n" +
+                "                    \"bucket\": \"devicebergrestcatalog\",\n" +
+                "                    \"filterColumn\": \"ptno\"\n" +
+                "                }\n" +
                 "            },\n" +
                 "            {\n" +
-                "                \"input\": \"result_df\",\n" +
-                "                \"node\": \"print\"\n" +
+                "                \"input\": \"df_select_filtered\",\n" +
+                "                \"node\": \"show\",\n" +
+                "                \"params\": {\n" +
+                "                    \"format\": \"csv\",\n" +
+                "                    \"n\": 20,\n" +
+                "                    \"header\": \"true\"\n" +
+                "                }\n" +
                 "            }\n" +
                 "        ]\n" +
                 "    }";

@@ -153,4 +153,70 @@ public class MultiStepPipelineTest {
         printTestInfo("testJoinAndTransformationPipeline", json, actual);
         assertEquals(expectedSteps, actual);
     }
+
+    @Test
+    @DisplayName("다단계 파이프라인 3: fileFilter -> GroupBy -> Agg 파이프라인")
+    void testPipelineWithFileFilter() throws Exception {
+        String json = "{\n"
+                + "  \"steps\": [\n"
+                + "    {\n"
+                + "      \"node\": \"fileFilter\",\n"
+                + "      \"input\": \"orders_df\",\n"
+                + "      \"output\": \"orders_filtered\",\n"
+                + "      \"params\": {\n"
+                + "        \"bucket\": \"my-bucket\",\n"
+                + "        \"objectKey\": \"tmp/order_ids.csv\",\n"
+                + "        \"filterColumn\": \"order_id\"\n"
+                + "      }\n"
+                + "    },\n"
+                + "    {\n"
+                + "      \"node\": \"groupBy\",\n"
+                + "      \"input\": \"orders_filtered\",\n"
+                + "      \"output\": \"df_grouped\",\n"
+                + "      \"params\": {\n"
+                + "        \"keys\": [ { \"type\": \"col\", \"name\": \"status\" } ]\n"
+                + "      }\n"
+                + "    },\n"
+                + "    {\n"
+                + "      \"node\": \"agg\",\n"
+                + "      \"input\": \"df_grouped\",\n"
+                + "      \"output\": \"df_aggregated\",\n"
+                + "      \"params\": {\n"
+                + "        \"aggs\": [\n"
+                + "          {\n"
+                + "            \"expr\": {\n"
+                + "              \"type\": \"func\",\n"
+                + "              \"name\": \"count\",\n"
+                + "              \"args\": [ { \"type\": \"col\", \"name\": \"order_id\" } ]\n"
+                + "            },\n"
+                + "            \"alias\": \"order_count\"\n"
+                + "          }\n"
+                + "        ]\n"
+                + "      }\n"
+                + "    }\n"
+                + "  ]\n"
+                + "}";
+
+        String expectedSteps =
+                "orders_filtered = orders_df.join(\n" +
+                        "  spark.read.format(\"csv\")\n" +
+                        "    .option(\"header\", \"true\")\n" +
+                        "    .option(\"inferSchema\", \"true\")\n" +
+                        "    .load(\"s3a://my-bucket/tmp/order_ids.csv\")\n" +
+                        "    .select(\"order_id\")\n" +
+                        "    .distinct(),\n" +
+                        "  \"order_id\",\n" +
+                        "  \"inner\"\n" +
+                        ")\n" +
+                        "df_grouped = orders_filtered.groupBy(F.col(\"status\"))\n" +
+                        "df_aggregated = df_grouped.agg(\n" +
+                        "      F.count(F.col(\"order_id\")).alias(\"order_count\")\n" +
+                        "  )\n";
+
+        String actual = PySparkChainGenerator.generate(json);
+
+        printTestInfo("testPipelineWithFileFilter", json, actual);
+        assertEquals(expectedSteps, actual);
+    }
+
 }

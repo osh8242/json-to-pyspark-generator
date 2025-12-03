@@ -108,7 +108,7 @@ public class PySparkChainGenerator {
             String inputDf = StringUtil.getText(node, "input", "df");
             String outputDf = StringUtil.getText(node, "output", null);
 
-            // 1-1) Action 류: show / save
+            // 1-1) Action 류: show / print / save
             switch (opName) {
                 case "show":
                     script.append(stepBuilder.buildShowAction(node));
@@ -120,7 +120,7 @@ public class PySparkChainGenerator {
                     script.append(stepBuilder.buildSave(node));
                     continue;
                 case "load":
-                    // 1-2) load 스텝은 항상 새로운 소스 DF 를 생성하는 스텝으로 처리
+                    // load 스텝은 항상 새로운 소스 DF 를 생성하는 스텝으로 처리
                     // inputDf 는 무시하고, output 이 없으면 inputDf 또는 기본 df 를 사용
                     if (outputDf == null || outputDf.isEmpty()) {
                         outputDf = (inputDf != null && !inputDf.isEmpty()) ? inputDf : "df";
@@ -158,6 +158,9 @@ public class PySparkChainGenerator {
                 case "filter":
                 case "where":
                     script.append(stepBuilder.buildFilter(node));
+                    break;
+                case "fileFilter":
+                    script.append(stepBuilder.buildFileFilter(node));
                     break;
                 case "join":
                     script.append(stepBuilder.buildJoin(node));
@@ -234,6 +237,9 @@ public class PySparkChainGenerator {
                 case "filter":
                 case "where":
                     sb.append(stepBuilder.buildFilter(step));
+                    break;
+                case "fileFilter":
+                    sb.append(stepBuilder.buildFileFilter(step));
                     break;
                 case "join":
                     sb.append(stepBuilder.buildJoin(step));
