@@ -16,19 +16,41 @@ public class StringUtil {
         return v != null && !v.isNull() ? v.asText() : defaultValue;
     }
 
+    public static boolean hasText(String text) {
+        return text != null && !text.trim().isEmpty();
+    }
+
+    public static boolean isPyIdent(String s) {
+        return s != null && s.matches("[A-Za-z_][A-Za-z0-9_]*");
+    }
+
     public static String pyString(String s) {
         if (s == null) return "None";
         StringBuilder sb = new StringBuilder(s.length() + 10);
         for (int i = 0; i < s.length(); i++) {
             char c = s.charAt(i);
             switch (c) {
-                case '\\': sb.append("\\\\"); break;
-                case '"': sb.append("\\\""); break;
-                case '\n': sb.append("\\n"); break;
-                case '\r': sb.append("\\r"); break;
-                case '\t': sb.append("\\t"); break;
-                case '\b': sb.append("\\b"); break;
-                case '\f': sb.append("\\f"); break;
+                case '\\':
+                    sb.append("\\\\");
+                    break;
+                case '"':
+                    sb.append("\\\"");
+                    break;
+                case '\n':
+                    sb.append("\\n");
+                    break;
+                case '\r':
+                    sb.append("\\r");
+                    break;
+                case '\t':
+                    sb.append("\\t");
+                    break;
+                case '\b':
+                    sb.append("\\b");
+                    break;
+                case '\f':
+                    sb.append("\\f");
+                    break;
                 default:
                     if (c < 0x20 || c == 0x7f) {
                         sb.append(String.format("\\u%04x", (int) c));

@@ -502,6 +502,37 @@ public class StepBuilder {
         return ".drop(" + String.join(", ", parts) + ")\n";
     }
 
+    public String buildCount(JsonNode node) {
+        JsonNode params = getParamsOrSelf(node);
+
+        String inputDf = StringUtil.getText(node, "input", "df");
+        String output = StringUtil.getText(node, "output", null);
+
+        if (!StringUtil.hasText(output)) {
+            throw new RecipeStepException("count step requires non-empty 'output' (returns int).");
+        }
+
+        output = output.trim();
+        if (!StringUtil.isPyIdent(output)) {
+            throw new RecipeStepException("count step 'output' must be a valid Python identifier: " + output);
+        }
+
+        if(inputDf.equals(output)) {
+            throw new RecipeStepException("count step 'output' must be different from 'input' (DataFrame would be overwritten).");
+        }
+
+        boolean doPrint = params != null && params.has("print") && params.get("print").asBoolean(false);
+
+        StringBuilder sb = new StringBuilder();
+        sb.append(output).append(" = ").append(inputDf).append(".count()\n");
+
+        if (doPrint) {
+            sb.append("print(").append(output).append(")\n");
+        }
+
+        return sb.toString();
+    }
+
     public String buildWithColumnRenamed(JsonNode node) {
         JsonNode params = getParamsOrSelf(node);
         String src = requireText(params, "src", "withColumnRenamed");

@@ -116,14 +116,15 @@ public class PySparkChainGenerator {
                 case "print":
                     script.append(stepBuilder.buildPrint(node));
                     continue;
+                case "count":
+                    script.append(stepBuilder.buildCount(node));
+                    continue;
                 case "save":
                     script.append(stepBuilder.buildSave(node));
                     continue;
                 case "load":
-                    // load 스텝은 항상 새로운 소스 DF 를 생성하는 스텝으로 처리
-                    // inputDf 는 무시하고, output 이 없으면 inputDf 또는 기본 df 를 사용
-                    if (outputDf == null || outputDf.isEmpty()) {
-                        outputDf = (inputDf != null && !inputDf.isEmpty()) ? inputDf : "df";
+                    if (!StringUtil.hasText(outputDf)) {
+                        throw new RecipeStepException("load step requires non-empty 'output'.");
                     }
                     script.append(outputDf)
                             .append(" = ")
@@ -263,6 +264,8 @@ public class PySparkChainGenerator {
                 case "print":
                     // print도 action이므로 체인에 포함하지 않음
                     break;
+                case "count":
+                    throw new RecipeStepException("count는 action(df.count())이므로 sub-chain 내부에서 사용할 수 없습니다.");
                 case "distinct":
                     sb.append(".distinct()\n");
                     break;
