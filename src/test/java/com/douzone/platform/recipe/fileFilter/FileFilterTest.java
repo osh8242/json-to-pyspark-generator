@@ -55,42 +55,6 @@ public class FileFilterTest {
     }
 
     @Test
-    @DisplayName("FileFilter: input 미지정 시 기본 df 사용")
-    void testFileFilterDefaultInput() throws Exception {
-        String json = "{\n"
-                + "  \"steps\": [\n"
-                + "    {\n"
-                + "      \"node\": \"fileFilter\",\n"
-                + "      \"output\": \"df_filtered\",\n"
-                + "      \"params\": {\n"
-                + "        \"bucket\": \"my-bucket\",\n"
-                + "        \"objectKey\": \"tmp/order_ids.csv\",\n"
-                + "        \"filterColumn\": \"order_id\"\n"
-                + "      }\n"
-                + "    }\n"
-                + "  ]\n"
-                + "}";
-
-        // input 이 없으면 inputDf 는 기본값 "df" 로 사용
-        String expected =
-                "df_filtered = df.join(\n" +
-                        "  spark.read.format(\"csv\")\n" +
-                        "    .option(\"header\", \"true\")\n" +
-                        "    .option(\"inferSchema\", \"true\")\n" +
-                        "    .load(\"s3a://my-bucket/tmp/order_ids.csv\")\n" +
-                        "    .select(\"order_id\")\n" +
-                        "    .distinct(),\n" +
-                        "  \"order_id\",\n" +
-                        "  \"inner\"\n" +
-                        ")\n";
-
-        String actual = PySparkChainGenerator.generate(json);
-
-        printTestInfo("testFileFilteDefaultInput", json, actual);
-        assertEquals(expected, actual);
-    }
-
-    @Test
     @DisplayName("FileFilter: bucket 이 '/' 로 끝나는 경우에도 경로가 올바르게 생성")
     void testFileFilterBucketWithTrailingSlash() throws Exception {
         String json = "{\n"

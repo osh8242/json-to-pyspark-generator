@@ -101,101 +101,101 @@ public class PySparkChainGenerator {
         // 1) 각 step 을 순차적으로 코드로 변환
         for (JsonNode node : steps) {
             String opName = StringUtil.getText(node, "node", null);
-            if (opName == null) {
-                continue;
-            }
+            if (opName == null) continue;
+
+            boolean persist = getPersistFlag(node);
 
             String inputDf = StringUtil.getText(node, "input", "df");
             String outputDf = StringUtil.getText(node, "output", null);
 
-            // 1-1) Action 류: show / print / save
+            // 1-1) Action 류: show / print / count / save / load
             switch (opName) {
                 case "show":
-                    script.append(stepBuilder.buildShowAction(node));
+                    appendWithOptionalPersist(script, stepBuilder.buildShowAction(node), false);
                     continue;
                 case "print":
-                    script.append(stepBuilder.buildPrint(node));
+                    appendWithOptionalPersist(script, stepBuilder.buildPrint(node), false);
                     continue;
                 case "count":
-                    script.append(stepBuilder.buildCount(node));
+                    appendWithOptionalPersist(script, stepBuilder.buildCount(node), false);
                     continue;
                 case "save":
-                    script.append(stepBuilder.buildSave(node));
+                    appendWithOptionalPersist(script, stepBuilder.buildSave(node), false);
                     continue;
-                case "load":
+                case "load": {
                     if (!StringUtil.hasText(outputDf)) {
                         throw new RecipeStepException("load step requires non-empty 'output'.");
                     }
-                    script.append(outputDf)
-                            .append(" = ")
-                            .append(stepBuilder.buildLoad(node));
+                    String loadExpr = stepBuilder.buildLoad(node);
+                    String line = outputDf + " = " + loadExpr;
+                    appendWithOptionalPersist(script, line, persist); // ★ load에도 persist 지원
                     continue;
+                }
                 default:
                     // 나머지는 아래에서 일반 변환 스텝으로 처리
             }
 
             // 2) 나머지 node 들은 변환이므로 "out = in.xxx()" 형태로 생성
-            if (outputDf == null || outputDf.isEmpty()) {
-                // output 이 없으면 in-place 갱신 (df = df.xxx())
-                outputDf = inputDf;
+            if (!StringUtil.hasText(outputDf)) {
+                outputDf = inputDf; // output 이 없으면 in-place 갱신
             }
 
-            // 대입문 헤더
-            script.append(outputDf)
-                    .append(" = ")
-                    .append(inputDf);
+            StringBuilder line = new StringBuilder();
+            line.append(outputDf).append(" = ").append(inputDf);
 
             // 뒤에 체인 메서드 붙이기
             switch (opName) {
                 case "select":
-                    script.append(stepBuilder.buildSelect(node));
+                    line.append(stepBuilder.buildSelect(node));
                     break;
                 case "withColumn":
-                    script.append(stepBuilder.buildWithColumn(node));
+                    line.append(stepBuilder.buildWithColumn(node));
                     break;
                 case "withColumns":
-                    script.append(stepBuilder.buildWithColumns(node));
+                    line.append(stepBuilder.buildWithColumns(node));
                     break;
                 case "filter":
                 case "where":
-                    script.append(stepBuilder.buildFilter(node));
+                    line.append(stepBuilder.buildFilter(node));
                     break;
                 case "fileFilter":
-                    script.append(stepBuilder.buildFileFilter(node));
+                    line.append(stepBuilder.buildFileFilter(node));
                     break;
                 case "join":
-                    script.append(stepBuilder.buildJoin(node));
+                    line.append(stepBuilder.buildJoin(node));
                     break;
                 case "groupBy":
-                    script.append(stepBuilder.buildGroupBy(node));
+                    line.append(stepBuilder.buildGroupBy(node));
                     break;
                 case "agg":
-                    script.append(stepBuilder.buildAgg(node));
+                    line.append(stepBuilder.buildAgg(node));
                     break;
                 case "orderBy":
                 case "sort":
-                    script.append(stepBuilder.buildOrderBy(node));
+                    line.append(stepBuilder.buildOrderBy(node));
                     break;
                 case "limit":
-                    script.append(stepBuilder.buildLimit(node));
+                    line.append(stepBuilder.buildLimit(node));
                     break;
                 case "distinct":
-                    script.append(".distinct()\n");
+                    line.append(".distinct()\n");
                     break;
                 case "dropDuplicates":
-                    script.append(stepBuilder.buildDropDuplicates(node));
+                    line.append(stepBuilder.buildDropDuplicates(node));
                     break;
                 case "drop":
-                    script.append(stepBuilder.buildDrop(node));
+                    line.append(stepBuilder.buildDrop(node));
                     break;
                 case "withColumnRenamed":
-                    script.append(stepBuilder.buildWithColumnRenamed(node));
+                    line.append(stepBuilder.buildWithColumnRenamed(node));
                     break;
                 default:
-                    // 미리 정의되지 않은 스텝은 generic 체인 메서드로 처리
-                    script.append(stepBuilder.buildDefaultStep(opName, node));
+                    line.append(stepBuilder.buildDefaultStep(opName, node));
                     break;
             }
+
+            // ★ 최종 라인 끝에 persist 적용
+            appendWithOptionalPersist(script, line.toString(), persist);
         }
         return script.toString();
     }
@@ -396,6 +396,45 @@ public class PySparkChainGenerator {
     private JsonNode getStepField(JsonNode step, String field) {
         JsonNode params = getStepParams(step);
         return params != null ? params.get(field) : null;
+    }
+
+    private boolean getPersistFlag(JsonNode step) {
+        if (step == null || step.isNull()) return false;
+
+        JsonNode direct = step.get("persist");
+        if (direct != null && direct.isBoolean()) {
+            return direct.asBoolean(false);
+        }
+
+        return false;
+    }
+
+    /**
+     * code 문자열의 "마지막 개행(\n/\r\n) 직전"에 .persist()를 삽입하고,
+     * 개행이 없으면 마지막에 \n을 보장합니다.
+     */
+    private void appendWithOptionalPersist(StringBuilder out, String code, boolean persist) {
+        if (code == null || code.isEmpty()) return;
+
+        int cut = code.length();
+        while (cut > 0) {
+            char c = code.charAt(cut - 1);
+            if (c == '\n' || c == '\r') cut--;
+            else break;
+        }
+
+        String core = code.substring(0, cut);
+        String tail = code.substring(cut); // 원래 달려있던 개행들
+
+        if (persist) {
+            String trimmed = core.trim();
+            if (!trimmed.endsWith(".persist()")) {
+                core = core + ".persist()";
+            }
+        }
+
+        if (tail.isEmpty()) tail = "\n";
+        out.append(core).append(tail);
     }
 
     @Getter
