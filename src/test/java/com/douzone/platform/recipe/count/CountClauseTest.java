@@ -108,7 +108,7 @@ public class CountClauseTest {
 
         RecipeStepException ex = assertThrows(RecipeStepException.class, () -> PySparkChainGenerator.generate(json));
         // 메시지까지 검증하고 싶으면 아래 주석 해제
-         assertTrue(ex.getMessage().contains("count step requires non-empty 'output'"));
+         assertTrue(ex.getMessage().contains("Step requires non-empty 'output'"));
     }
 
     @Test

@@ -1,12 +1,15 @@
+// 파일: src/main/java/com/douzone/platform/recipe/PySparkChainGenerator.java
 package com.douzone.platform.recipe;
 
 import com.douzone.platform.recipe.builder.StepBuilder;
+import com.douzone.platform.recipe.codegen.CodeWriter;
+import com.douzone.platform.recipe.codegen.CodegenContext;
 import com.douzone.platform.recipe.exception.RecipeStepException;
+import com.douzone.platform.recipe.step.*;
 import com.douzone.platform.recipe.util.StringUtil;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
-import lombok.Getter;
 
 import java.util.HashSet;
 import java.util.Set;
@@ -14,22 +17,29 @@ import java.util.Set;
 /**
  * JSON 기반 레시피를 PySpark 코드로 변환하는 메인 엔진.
  * <p>
- * - 외부 진입점: static generate(String / JsonNode)
- * - steps 배열을 순차적으로 실행 가능한 PySpark 코드로 변환
- * - join 서브쿼리, load/save, show 등 특수 스텝 지원
+ * 핵심 변경점:
+ * - node별 switch 제거
+ * - StepRegistry + StepHandler(전략) 기반으로 확장 가능 구조
+ * - 스텝을 SOURCE / DF_TRANSFORM / ACTION_VOID / ACTION_SCALAR 로 분류
+ * - first/isEmpty 같은 "output optional" 액션 지원
  */
 public class PySparkChainGenerator {
 
     private final StepBuilder stepBuilder;
     private final ObjectMapper om = new ObjectMapper();
 
-    // 생성자에서 StepBuilder를 초기화하며, 재귀 호출을 위해 자기 자신의 참조를 넘겨줍니다.
+    // 새 구조
+    private final StepRegistry registry;
+    private final CodegenContext context;
+
     public PySparkChainGenerator() {
+        this.context = new CodegenContext("df");
         this.stepBuilder = new StepBuilder(this);
+        this.registry = StepRegistry.defaultRegistry();
     }
 
     /**
-     * 외부에서 호출하는 정적 진입점 메서드입니다. (문자열 JSON)
+     * 외부에서 호출하는 정적 진입점 (문자열 JSON)
      */
     public static String generate(String json) throws Exception {
         if (json == null || json.trim().isEmpty()) {
@@ -40,7 +50,7 @@ public class PySparkChainGenerator {
     }
 
     /**
-     * 외부에서 호출하는 정적 진입점 메서드입니다. (JsonNode)
+     * 외부에서 호출하는 정적 진입점 (JsonNode)
      */
     public static String generate(JsonNode json) throws Exception {
         if (json == null) {
@@ -48,27 +58,6 @@ public class PySparkChainGenerator {
         }
         PySparkChainGenerator generator = new PySparkChainGenerator();
         return generator.generatePySparkCode(json);
-    }
-
-    /**
-     * JSON 파라미터에서 DataFrame/테이블/쿼리 식별자를 추출합니다.
-     * <p>
-     * - input 필드 (기본 df)
-     * - load step의 table/dbtable/query 등
-     * - join step의 right (문자열 또는 sub-JSON input)
-     * <p>
-     * 을 재귀적으로 수집하여 중복 없는 Set 으로 반환합니다.
-     *
-     * @param json JSON 문자열
-     * @return 식별자 이름들의 Set (예: {"df", "orders_df", "users_df", "catalog.db.table", "public.orders"})
-     * @throws Exception JSON 파싱 또는 처리 오류 시
-     */
-    public static Set<String> extractTables(String json) throws Exception {
-        PySparkChainGenerator generator = new PySparkChainGenerator();
-        JsonNode root = generator.om.readTree(json);
-        Set<String> tables = new HashSet<>();
-        generator.collectTables(root, tables);
-        return tables;
     }
 
     /**
@@ -81,8 +70,6 @@ public class PySparkChainGenerator {
 
     /**
      * JsonNode를 받아 PySpark 코드로 변환합니다.
-     * - 상단에 import 헤더를 포함합니다.
-     * - steps 배열을 순차적으로 처리하여 body를 생성합니다.
      */
     public String generatePySparkCode(JsonNode root) throws Exception {
         if (root == null || root.isNull()) {
@@ -96,348 +83,141 @@ public class PySparkChainGenerator {
 
         ArrayNode steps = (ArrayNode) stepsNode;
 
-        StringBuilder script = new StringBuilder();
+        CodeWriter writer = new CodeWriter();
 
-        // 1) 각 step 을 순차적으로 코드로 변환
-        for (JsonNode node : steps) {
-            String opName = StringUtil.getText(node, "node", null);
-            if (opName == null) continue;
+        for (JsonNode step : steps) {
+            StepRequest req = StepRequestFactory.fromTopLevelStep(step, context);
 
-            boolean persist = getPersistFlag(node);
+            StepHandler handler = registry.get(req.getNode());
+            registry.validate(req, handler);
 
-            String inputDf = StringUtil.getText(node, "input", "df");
-            String outputDf = StringUtil.getText(node, "output", null);
+            StepEmit emit = handler.emit(req, stepBuilder, context);
 
-            // 1-1) Action 류: show / print / count / save / load
-            switch (opName) {
-                case "show":
-                    appendWithOptionalPersist(script, stepBuilder.buildShowAction(node), false);
-                    continue;
-                case "print":
-                    appendWithOptionalPersist(script, stepBuilder.buildPrint(node), false);
-                    continue;
-                case "count":
-                    appendWithOptionalPersist(script, stepBuilder.buildCount(node), false);
-                    continue;
-                case "save":
-                    appendWithOptionalPersist(script, stepBuilder.buildSave(node), false);
-                    continue;
-                case "load": {
-                    if (!StringUtil.hasText(outputDf)) {
-                        throw new RecipeStepException("load step requires non-empty 'output'.");
+            switch (emit.getKind()) {
+                case SOURCE: {
+                    String output = req.getOutput();
+                    if (!StringUtil.hasText(output)) {
+                        throw new RecipeStepException("SOURCE step requires non-empty 'output'. node=" + req.getNode());
                     }
-                    String loadExpr = stepBuilder.buildLoad(node);
-                    String line = outputDf + " = " + loadExpr;
-                    appendWithOptionalPersist(script, line, persist); // ★ load에도 persist 지원
-                    continue;
+                    writer.appendDfAssignment(output.trim(), emit.getSourceExpr(), req.isPersist());
+                    break;
+                }
+                case DF_TRANSFORM: {
+                    // output 없으면 in-place 갱신
+                    String outputDf = StringUtil.hasText(req.getOutput()) ? req.getOutput().trim() : req.getInputDf();
+                    writer.appendDfChainAssignment(outputDf, req.getInputDf(), emit.getChainFragment(), req.isPersist());
+                    break;
+                }
+                case ACTION_VOID:
+                case ACTION_SCALAR: {
+                    writer.appendStatement(emit.getStatement());
+                    break;
                 }
                 default:
-                    // 나머지는 아래에서 일반 변환 스텝으로 처리
+                    throw new RecipeStepException("Unsupported StepKind: " + emit.getKind());
             }
-
-            // 2) 나머지 node 들은 변환이므로 "out = in.xxx()" 형태로 생성
-            if (!StringUtil.hasText(outputDf)) {
-                outputDf = inputDf; // output 이 없으면 in-place 갱신
-            }
-
-            StringBuilder line = new StringBuilder();
-            line.append(outputDf).append(" = ").append(inputDf);
-
-            // 뒤에 체인 메서드 붙이기
-            switch (opName) {
-                case "select":
-                    line.append(stepBuilder.buildSelect(node));
-                    break;
-                case "withColumn":
-                    line.append(stepBuilder.buildWithColumn(node));
-                    break;
-                case "withColumns":
-                    line.append(stepBuilder.buildWithColumns(node));
-                    break;
-                case "filter":
-                case "where":
-                    line.append(stepBuilder.buildFilter(node));
-                    break;
-                case "fileFilter":
-                    line.append(stepBuilder.buildFileFilter(node));
-                    break;
-                case "join":
-                    line.append(stepBuilder.buildJoin(node));
-                    break;
-                case "groupBy":
-                    line.append(stepBuilder.buildGroupBy(node));
-                    break;
-                case "agg":
-                    line.append(stepBuilder.buildAgg(node));
-                    break;
-                case "orderBy":
-                case "sort":
-                    line.append(stepBuilder.buildOrderBy(node));
-                    break;
-                case "limit":
-                    line.append(stepBuilder.buildLimit(node));
-                    break;
-                case "distinct":
-                    line.append(".distinct()\n");
-                    break;
-                case "dropDuplicates":
-                    line.append(stepBuilder.buildDropDuplicates(node));
-                    break;
-                case "drop":
-                    line.append(stepBuilder.buildDrop(node));
-                    break;
-                case "withColumnRenamed":
-                    line.append(stepBuilder.buildWithColumnRenamed(node));
-                    break;
-                default:
-                    line.append(stepBuilder.buildDefaultStep(opName, node));
-                    break;
-            }
-
-            // ★ 최종 라인 끝에 persist 적용
-            appendWithOptionalPersist(script, line.toString(), persist);
         }
-        return script.toString();
+
+        return writer.toString();
     }
 
     /**
      * steps 배열을 받아 체인 메서드 문자열을 생성하는 재귀적 핵심 로직입니다.
-     * 이 메서드는 순수하게 메서드 체인(.filter(...).join(...)) 부분만 생성합니다.
-     * <p>
-     * join 서브쿼리(right JSON) 등의 상황에서 사용됩니다.
+     * - join right 서브쿼리에서 사용
+     * - CHAIN 모드에서는 ACTION 스텝을 금지(안전장치)
      */
     public ChainBuildResult buildChain(String inputDf, ArrayNode steps) throws Exception {
         String baseExpression = inputDf;
-        StringBuilder sb = new StringBuilder();
+        StringBuilder chain = new StringBuilder();
 
         if (steps == null) {
             return new ChainBuildResult(baseExpression, "");
         }
 
         for (JsonNode step : steps) {
-            String opName = StringUtil.getText(step, "node", null);
-            if (opName == null) continue;
+            StepRequest req = StepRequestFactory.fromChainStep(step, inputDf, context);
 
-            switch (opName) {
-                case "load":
-                    // 서브 체인의 소스 DF 지정
-                    String loadExpr = stepBuilder.buildLoad(step);
-                    if (loadExpr != null && !loadExpr.isEmpty()) {
-                        baseExpression = loadExpr;
-                    }
-                    break;
-                case "select":
-                    sb.append(stepBuilder.buildSelect(step));
-                    break;
-                case "withColumn":
-                    sb.append(stepBuilder.buildWithColumn(step));
-                    break;
-                case "withColumns":
-                    sb.append(stepBuilder.buildWithColumns(step));
-                    break;
-                case "filter":
-                case "where":
-                    sb.append(stepBuilder.buildFilter(step));
-                    break;
-                case "fileFilter":
-                    sb.append(stepBuilder.buildFileFilter(step));
-                    break;
-                case "join":
-                    sb.append(stepBuilder.buildJoin(step));
-                    break;
-                case "groupBy":
-                    sb.append(stepBuilder.buildGroupBy(step));
-                    break;
-                case "agg":
-                    sb.append(stepBuilder.buildAgg(step));
-                    break;
-                case "orderBy":
-                case "sort":
-                    sb.append(stepBuilder.buildOrderBy(step));
-                    break;
-                case "limit":
-                    sb.append(stepBuilder.buildLimit(step));
-                    break;
-                case "show":
-                    // show는 action이므로 체인에 포함하지 않음
-                    break;
-                case "print":
-                    // print도 action이므로 체인에 포함하지 않음
-                    break;
-                case "count":
-                    throw new RecipeStepException("count는 action(df.count())이므로 sub-chain 내부에서 사용할 수 없습니다.");
-                case "distinct":
-                    sb.append(".distinct()\n");
-                    break;
-                case "dropDuplicates":
-                    sb.append(stepBuilder.buildDropDuplicates(step));
-                    break;
-                case "drop":
-                    sb.append(stepBuilder.buildDrop(step));
-                    break;
-                case "withColumnRenamed":
-                    sb.append(stepBuilder.buildWithColumnRenamed(step));
-                    break;
-                default:
-                    sb.append(stepBuilder.buildDefaultStep(opName, step));
-                    break;
+            StepHandler handler = registry.get(req.getNode());
+            registry.validate(req, handler);
+
+            StepEmit emit = handler.emit(req, stepBuilder, context);
+
+            if (emit.getKind() == StepKind.SOURCE) {
+                // 서브체인의 base DF 표현식을 교체
+                baseExpression = CodeWriter.stripTrailingNewlines(emit.getSourceExpr()).trim();
+            } else if (emit.getKind() == StepKind.DF_TRANSFORM) {
+                chain.append(emit.getChainFragment());
+            } else {
+                // show/save/count/first/isEmpty 같은 액션이 join subchain에 끼는 것을 방지
+                throw new RecipeStepException("Action step is not allowed in CHAIN mode. node=" + req.getNode());
             }
         }
 
-        return new ChainBuildResult(baseExpression, sb.toString());
+        return new ChainBuildResult(baseExpression, chain.toString());
     }
 
     /**
-     * steps JSON 노드에서 DataFrame/테이블 식별자를 재귀적으로 수집합니다.
-     * - 외부 호출은 static extractTables 사용 권장.
+     * JSON 노드에서 DataFrame/테이블 식별자를 재귀적으로 수집합니다.
+     * - input 필드(기본 df)
+     * - load step: table/dbtable/query/namespace 등을 발견하면 추가
+     * - join step: right가 문자열이면 추가, 객체면 재귀
      */
     private void collectTables(JsonNode node, Set<String> tables) {
         if (node == null || !node.isObject()) {
             return;
         }
 
-        // input 필드 추가 (기본 "df")
-        String input = StringUtil.getText(node, "input", "df");
-        tables.add(input);
+        // input
+        String input = StringUtil.getText(node, "input", context.getDefaultInputDf());
+        if (StringUtil.hasText(input)) tables.add(input);
 
-        // steps 배열 검사
-        ArrayNode steps = (ArrayNode) node.get("steps");
-        if (steps != null) {
-            for (JsonNode step : steps) {
-                String opName = StringUtil.getText(step, "node", null);
-                if ("load".equals(opName)) {
+        // steps
+        JsonNode stepsNode = node.get("steps");
+        if (stepsNode != null && stepsNode.isArray()) {
+            for (JsonNode step : stepsNode) {
+                String op = StringUtil.getText(step, "node", null);
+                if (!StringUtil.hasText(op)) continue;
+
+                if ("load".equals(op)) {
                     collectLoadTables(step, tables);
-                } else if ("join".equals(opName)) {
-                    // join step: right 처리
-                    JsonNode rightNode = getStepField(step, "right");
-                    if (rightNode != null && !rightNode.isNull()) {
-                        if (rightNode.isTextual()) {
-                            // right가 문자열: 식별자 추가
-                            tables.add(rightNode.asText());
-                        } else if (rightNode.isObject()) {
-                            // right가 객체: input 추가 + 재귀 steps 검사
-                            String subInput = StringUtil.getText(rightNode, "input", "df");
-                            tables.add(subInput);
-                            collectTables(rightNode, tables);  // sub-JSON 재귀
+                } else if ("join".equals(op)) {
+                    JsonNode params = step.has("params") ? step.get("params") : step;
+                    if (params != null) {
+                        JsonNode rightNode = params.get("right");
+                        if (rightNode != null) {
+                            if (rightNode.isTextual()) {
+                                tables.add(rightNode.asText());
+                            } else if (rightNode.isObject()) {
+                                // right가 객체면 input + 재귀
+                                String subInput = StringUtil.getText(rightNode, "input", context.getDefaultInputDf());
+                                if (StringUtil.hasText(subInput)) tables.add(subInput);
+                                collectTables(rightNode, tables);
+                            }
                         }
                     }
                 }
-                // 다른 step은 별도 식별자 생성 안 하므로 무시
             }
         }
     }
 
     private void collectLoadTables(JsonNode step, Set<String> tables) {
-        JsonNode params = getStepParams(step);
-        String source = StringUtil.getText(params, "source", null);
-        if (source == null) {
-            String table = StringUtil.getText(params, "table", null);
-            if (table != null && !table.isEmpty()) {
-                tables.add(table);
-            }
-            return;
-        }
+        if (step == null) return;
+        JsonNode params = step.has("params") ? step.get("params") : step;
 
-        switch (source.toLowerCase()) {
-            case "iceberg":
-                String catalog = StringUtil.getText(params, "catalog", null);
-                String database = StringUtil.getText(params, "database", null);
-                String table = StringUtil.getText(params, "table", null);
-                if (table != null && !table.isEmpty()) {
-                    StringBuilder identifier = new StringBuilder();
-                    if (catalog != null && !catalog.isEmpty()) {
-                        identifier.append(catalog).append('.');
-                    }
-                    if (database != null && !database.isEmpty()) {
-                        identifier.append(database).append('.');
-                    }
-                    identifier.append(table);
-                    tables.add(identifier.toString());
-                }
-                break;
-            case "postgres":
-            case "postgresql":
-                String jdbcTable = StringUtil.getText(params, "table", null);
-                if (jdbcTable != null && !jdbcTable.isEmpty()) {
-                    tables.add(jdbcTable);
-                }
-                JsonNode options = params.get("options");
-                if (options != null && options.isObject()) {
-                    if (options.hasNonNull("dbtable")) {
-                        tables.add(options.get("dbtable").asText());
-                    }
-                    if (options.hasNonNull("table")) {
-                        tables.add(options.get("table").asText());
-                    }
-                    if (options.hasNonNull("query")) {
-                        tables.add(options.get("query").asText());
-                    }
-                }
-                break;
-            default:
-                String generic = StringUtil.getText(params, "table", null);
-                if (generic != null && !generic.isEmpty()) {
-                    tables.add(generic);
-                }
-                break;
-        }
-    }
-
-    private JsonNode getStepParams(JsonNode step) {
-        if (step != null && step.has("params")) {
-            JsonNode params = step.get("params");
-            if (params != null && params.isObject()) {
-                return params;
+        // load에서 흔히 쓰는 식별자 후보들을 넓게 잡아 수집
+        String[] keys = {"table", "dbtable", "query", "namespace", "database"};
+        for (String k : keys) {
+            JsonNode v = params.get(k);
+            if (v != null && v.isTextual()) {
+                String s = v.asText();
+                if (StringUtil.hasText(s)) tables.add(s);
             }
         }
-        return step;
-    }
-
-    private JsonNode getStepField(JsonNode step, String field) {
-        JsonNode params = getStepParams(step);
-        return params != null ? params.get(field) : null;
-    }
-
-    private boolean getPersistFlag(JsonNode step) {
-        if (step == null || step.isNull()) return false;
-
-        JsonNode direct = step.get("persist");
-        if (direct != null && direct.isBoolean()) {
-            return direct.asBoolean(false);
-        }
-
-        return false;
     }
 
     /**
-     * code 문자열의 "마지막 개행(\n/\r\n) 직전"에 .persist()를 삽입하고,
-     * 개행이 없으면 마지막에 \n을 보장합니다.
+     * buildChain 결과 반환용 객체
      */
-    private void appendWithOptionalPersist(StringBuilder out, String code, boolean persist) {
-        if (code == null || code.isEmpty()) return;
-
-        int cut = code.length();
-        while (cut > 0) {
-            char c = code.charAt(cut - 1);
-            if (c == '\n' || c == '\r') cut--;
-            else break;
-        }
-
-        String core = code.substring(0, cut);
-        String tail = code.substring(cut); // 원래 달려있던 개행들
-
-        if (persist) {
-            String trimmed = core.trim();
-            if (!trimmed.endsWith(".persist()")) {
-                core = core + ".persist()";
-            }
-        }
-
-        if (tail.isEmpty()) tail = "\n";
-        out.append(core).append(tail);
-    }
-
-    @Getter
     public static class ChainBuildResult {
         private final String baseExpression;
         private final String chain;
@@ -447,6 +227,12 @@ public class PySparkChainGenerator {
             this.chain = chain;
         }
 
-    }
+        public String getBaseExpression() {
+            return baseExpression;
+        }
 
+        public String getChain() {
+            return chain;
+        }
+    }
 }

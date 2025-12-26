@@ -26,7 +26,7 @@ public class SimpleTest {
                 "            },\n" +
                 "            {\n" +
                 "                \"input\": \"df_select_filtered\",\n" +
-                "                \"node\": \"show\",\n" +
+                "                \"node\": \"isEmpty\",\n" +
                 "                \"params\": {\n" +
                 "                    \"format\": \"csv\",\n" +
                 "                    \"n\": 20,\n" +
