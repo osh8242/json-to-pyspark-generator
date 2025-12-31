@@ -6,6 +6,7 @@ UI나 다른 서비스가 Spark 연산 시퀀스(Load, Select, Filter, Join 등)
 ## 주요 특징
 - **단계별 PySpark 코드 생성** – `PySparkChainGenerator`가 `steps[]`의 각 엔트리(load, select, filter, join, groupBy, agg, orderBy, limit, distinct, drop, withColumn* 등)를 순차적으로 처리하며, 체이닝된 PySpark DataFrame 코드를 관용적인 스타일로 생성합니다.
 - **풍부한 Expression Builder** – `ExpressionBuilder`를 통해 컬럼, 리터럴, 이항/불리언 연산, 중첩 함수, CASE, BETWEEN, IS IN(튜플 지원), LIKE, (is) null 검사 등을 표현할 수 있습니다.
+- **컨텍스트 기반 리터럴 렌더링** – `ExpressionContext`가 함수 인자별로 리터럴을 `F.lit(...)` 또는 원시 값으로 구분하여 생성해, `concat_ws`, `regexp_replace`, `date_format` 등에서 기대하는 PySpark 시그니처를 유지합니다.
 - **재귀 Join & 서브쿼리 지원** – join의 `right` 측에 또 다른 레시피(JSON)를 중첩해서 넣을 수 있으며, 제너레이터가 이를 재귀적으로 처리하면서 alias와 들여쓰기를 자동으로 맞춰 줍니다.
 - **액션 헬퍼** – `show`(전통적인 `.show()` 프리뷰 또는 JSON/JSONL/CSV 덤프)와 `save`(JDBC/Postgres 저장) 같은 비-할당 액션을 독립된 문장으로 렌더링합니다.
 - **테이블 탐색 기능** – `PySparkChainGenerator.extractTables(json)`은 입력·load·join 정보를 스캔해서 참조된 모든 테이블/데이터프레임 목록을 추출해 주며, 계보(lineage)나 의존성 분석에 활용할 수 있습니다.
