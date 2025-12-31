@@ -350,6 +350,15 @@ public class ExpressionBuilder {
                 return argIndex == 2;
             case "round":
                 return argIndex == 1;
+            case "concat_ws":
+                return argIndex == 0;
+            case "regexp_replace":
+            case "translate":
+                return argIndex == 1 || argIndex == 2;
+            case "date_format":
+            case "from_unixtime":
+            case "to_date":
+                return argIndex == 1;
             default:
                 return false;
         }
