@@ -343,22 +343,20 @@ public class ExpressionBuilder {
         if (funcName == null) return false;
         String normalized = funcName.toLowerCase();
         switch (normalized) {
-            case "substring":
-            case "substr":
-                return argIndex == 1 || argIndex == 2;
-            case "regexp_extract":
-                return argIndex == 2;
-            case "round":
-                return argIndex == 1;
             case "concat_ws":
                 return argIndex == 0;
-            case "regexp_replace":
-            case "translate":
-                return argIndex == 1 || argIndex == 2;
+            case "round":
             case "date_format":
             case "from_unixtime":
             case "to_date":
                 return argIndex == 1;
+            case "regexp_extract":
+                return argIndex == 2;
+            case "substring":
+            case "substr":
+            case "regexp_replace":
+            case "translate":
+                return argIndex == 1 || argIndex == 2;
             default:
                 return false;
         }
