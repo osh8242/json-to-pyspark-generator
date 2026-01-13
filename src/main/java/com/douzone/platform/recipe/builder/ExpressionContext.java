@@ -31,6 +31,7 @@ public class ExpressionContext {
 
     public enum LiteralMode {
         COLUMN,
-        RAW
+        RAW,
+        COLUMN_COERCE_NUMERIC  // F.lit(...)은 유지하되 "2" 같은 문자열을 숫자로 강제
     }
 }

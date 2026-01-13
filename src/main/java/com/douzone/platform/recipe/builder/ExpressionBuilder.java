@@ -72,8 +72,12 @@ public class ExpressionBuilder {
 
     public String buildLiteral(JsonNode e, ExpressionContext context) {
         JsonNode v = e.get("value");
+
         if (context.getLiteralMode() == ExpressionContext.LiteralMode.RAW) {
             return buildRawLiteral(v);
+        }
+        if (context.getLiteralMode() == ExpressionContext.LiteralMode.COLUMN_COERCE_NUMERIC) {
+            return buildCoercedNumericColumnLiteral(v); // 추가
         }
         return buildColumnLiteral(v);
     }
@@ -333,6 +337,9 @@ public class ExpressionBuilder {
     }
 
     private ExpressionContext adjustContextForFunctionArg(String funcName, int argIndex, ExpressionContext parentContext) {
+        if (requiresCoerceNumericLiteral(funcName)) {
+            return parentContext.withLiteralMode(ExpressionContext.LiteralMode.COLUMN_COERCE_NUMERIC);
+        }
         if (requiresRawLiteral(funcName, argIndex)) {
             return parentContext.withLiteralMode(ExpressionContext.LiteralMode.RAW);
         }
@@ -341,25 +348,172 @@ public class ExpressionBuilder {
 
     private boolean requiresRawLiteral(String funcName, int argIndex) {
         if (funcName == null) return false;
+
         String normalized = funcName.toLowerCase();
+
         switch (normalized) {
+
+            // -----------------------------
+            // 1) separator / format string
+            // -----------------------------
             case "concat_ws":
+                // sep (string)
                 return argIndex == 0;
-            case "round":
+
             case "date_format":
             case "from_unixtime":
             case "to_date":
+            case "to_timestamp":
+            case "unix_timestamp":
+                // format (string) - 보통 2번째 인자
                 return argIndex == 1;
+
+            case "format_string":
+                // format (string) - 1번째 인자
+                return argIndex == 0;
+
+            case "trunc":
+                // format (string) - 2번째 인자 ("MM", "YYYY" ...)
+                return argIndex == 1;
+
+            case "next_day":
+                // dayOfWeek (string) - 2번째 인자 ("Mon", "Tuesday" ...)
+                return argIndex == 1;
+
+            // -----------------------------
+            // 2) regex / replace / translate
+            // -----------------------------
             case "regexp_extract":
-                return argIndex == 2;
+                // (str, pattern, idx)
+                // pattern: string, idx: int  --> 둘 다 RAW가 맞음
+                return argIndex == 1 || argIndex == 2;
+
+            case "regexp_replace":
+                // (str, pattern, replacement) => pattern, replacement string
+                return argIndex == 1 || argIndex == 2;
+
+            case "translate":
+                // (col, matching, replace) => matching, replace string
+                return argIndex == 1 || argIndex == 2;
+
+            // split(str, pattern[, limit]) : pattern string, limit int
+            case "split":
+                return argIndex == 1 || argIndex == 2;
+
+            // -----------------------------
+            // 3) substring / locate / pad
+            // -----------------------------
             case "substring":
             case "substr":
-            case "regexp_replace":
-            case "translate":
+                // (str, pos, len) => pos/len int
                 return argIndex == 1 || argIndex == 2;
+
+            case "locate":
+                // (substr, str[, pos]) => substr string, pos int
+                return argIndex == 0 || argIndex == 2;
+
+            case "left":
+            case "right":
+            case "instr":
+                // (str, substr) => substr string
+                return argIndex == 1;
+
+            case "lpad":
+            case "rpad":
+                // (str, len, pad) => len int, pad string
+                return argIndex == 1 || argIndex == 2;
+
+            // -----------------------------
+            // 4) date offsets (int)
+            // -----------------------------
+            case "date_add":
+            case "date_sub":
+            case "add_months":
+                // (date, days/months) => int
+                return argIndex == 1;
+
+            // -----------------------------
+            // 5) numeric scale / options
+            // -----------------------------
+            case "round":
+            case "bround":
+                // (col, scale) => int
+                return argIndex == 1;
+
+            case "sha2":
+                // (col, numBits) => int (224/256/384/512)
+                return argIndex == 1;
+
+            case "months_between":
+                // (date1, date2[, roundOff]) => roundOff bool (3번째 인자)
+                return argIndex == 2;
+
+            // window(timeCol, windowDuration, slideDuration, startTime)
+            // duration들은 raw string
+            case "window":
+                return argIndex == 1 || argIndex == 2 || argIndex == 3;
+
             default:
                 return false;
         }
     }
+
+    private boolean requiresCoerceNumericLiteral(String funcName) {
+        if (funcName == null) return false;
+        String n = funcName.trim().toLowerCase();
+
+        // 산술 try_*만 대상으로 제한 (원하면 startsWith("try_")로 넓혀도 됨)
+        switch (n) {
+            case "try_divide":
+            case "try_multiply":
+            case "try_add":
+            case "try_subtract":
+            case "try_mod":
+                return true;
+            default:
+                return false;
+        }
+    }
+
+    private String buildCoercedNumericColumnLiteral(JsonNode v) {
+        return "F.lit(" + buildRawNumericLiteral(v) + ")";
+    }
+
+    /**
+     * try_* 산술 함수에서 쓰기 위한 raw numeric literal
+     * - v가 숫자면 그대로
+     * - v가 문자열("2", "2.3", "-10", "1e3")이면 숫자로 파싱 가능할 때만 숫자처럼 출력
+     * - 그 외(예: "abc")는 예외 (산술 try_* 인자에 문자열이 들어오는 걸 조기에 차단)
+     */
+    private String buildRawNumericLiteral(JsonNode v) {
+        if (v == null || v.isNull()) return "None";
+        if (v.isIntegralNumber() || v.isFloatingPointNumber()) return v.asText();
+        if (v.isBoolean()) return v.asBoolean() ? "True" : "False";
+
+        if (v.isTextual()) {
+            String s = v.asText();
+            if (s == null) return "None";
+            s = s.trim();
+            if (s.isEmpty()) return "None";
+
+            // True/False/None 허용
+            if ("true".equalsIgnoreCase(s)) return "True";
+            if ("false".equalsIgnoreCase(s)) return "False";
+            if ("none".equalsIgnoreCase(s) || "null".equalsIgnoreCase(s)) return "None";
+
+            // 정수/실수/지수 형태면 숫자로 취급 (따옴표 없이)
+            if (s.matches("[-+]?\\d+")) return s;
+            if (s.matches("[-+]?(\\d+\\.\\d*|\\d*\\.\\d+)([eE][-+]?\\d+)?")) return s;
+            if (s.matches("[-+]?\\d+([eE][-+]?\\d+)?")) return s; // 1e3 같은 케이스
+
+            throw new RecipeExpressionException(
+                    "Numeric literal required (try_*). But got non-numeric string: '" + s + "'"
+            );
+        }
+
+        // 배열/객체 등은 불허
+        throw new RecipeExpressionException("Numeric literal required (try_*). expr=" + v);
+    }
+
 
 }

@@ -209,4 +209,353 @@ public class WithColumnClauseTest {
         printTestInfo("testWithColumnAddStringPrefix", json, actual);
         assertEquals(expected, actual);
     }
+
+    @Test
+    @DisplayName("withColumn: 사칙연산(+) - age_plus_2 = age + 2")
+    void testWithColumnArithmeticAdd() throws Exception {
+        String json = "{\n"
+                + "  \"steps\": [\n"
+                + "    {\n"
+                + "      \"node\": \"withColumn\",\n"
+                + "      \"input\": \"df\",\n"
+                + "      \"output\": \"df_out\",\n"
+                + "      \"params\": {\n"
+                + "        \"name\": \"age_plus_2\",\n"
+                + "        \"expr\": {\n"
+                + "          \"type\": \"op\",\n"
+                + "          \"op\": \"+\",\n"
+                + "          \"left\": { \"type\": \"col\", \"name\": \"age\" },\n"
+                + "          \"right\": { \"type\": \"lit\", \"value\": 2 }\n"
+                + "        }\n"
+                + "      }\n"
+                + "    }\n"
+                + "  ]\n"
+                + "}";
+
+        String expected = "df_out = df.withColumn(\"age_plus_2\", (F.col(\"age\") + F.lit(2)))\n";
+        String actual = PySparkChainGenerator.generate(json);
+
+        printTestInfo("testWithColumnArithmeticAdd", json, actual);
+        assertEquals(expected, actual);
+    }
+
+    @Test
+    @DisplayName("withColumn: 사칙연산(-) - age_minus_1 = age - 1")
+    void testWithColumnArithmeticSubtract() throws Exception {
+        String json = "{\n"
+                + "  \"steps\": [\n"
+                + "    {\n"
+                + "      \"node\": \"withColumn\",\n"
+                + "      \"input\": \"df\",\n"
+                + "      \"output\": \"df_out\",\n"
+                + "      \"params\": {\n"
+                + "        \"name\": \"age_minus_1\",\n"
+                + "        \"expr\": {\n"
+                + "          \"type\": \"op\",\n"
+                + "          \"op\": \"-\",\n"
+                + "          \"left\": { \"type\": \"col\", \"name\": \"age\" },\n"
+                + "          \"right\": { \"type\": \"lit\", \"value\": 1 }\n"
+                + "        }\n"
+                + "      }\n"
+                + "    }\n"
+                + "  ]\n"
+                + "}";
+
+        String expected = "df_out = df.withColumn(\"age_minus_1\", (F.col(\"age\") - F.lit(1)))\n";
+        String actual = PySparkChainGenerator.generate(json);
+
+        printTestInfo("testWithColumnArithmeticSubtract", json, actual);
+        assertEquals(expected, actual);
+    }
+
+    @Test
+    @DisplayName("withColumn: 사칙연산(*) - wt_x2 = wt * 2")
+    void testWithColumnArithmeticMultiply() throws Exception {
+        String json = "{\n"
+                + "  \"steps\": [\n"
+                + "    {\n"
+                + "      \"node\": \"withColumn\",\n"
+                + "      \"input\": \"df\",\n"
+                + "      \"output\": \"df_out\",\n"
+                + "      \"params\": {\n"
+                + "        \"name\": \"wt_x2\",\n"
+                + "        \"expr\": {\n"
+                + "          \"type\": \"op\",\n"
+                + "          \"op\": \"*\",\n"
+                + "          \"left\": { \"type\": \"col\", \"name\": \"wt\" },\n"
+                + "          \"right\": { \"type\": \"lit\", \"value\": 2 }\n"
+                + "        }\n"
+                + "      }\n"
+                + "    }\n"
+                + "  ]\n"
+                + "}";
+
+        String expected = "df_out = df.withColumn(\"wt_x2\", (F.col(\"wt\") * F.lit(2)))\n";
+        String actual = PySparkChainGenerator.generate(json);
+
+        printTestInfo("testWithColumnArithmeticMultiply", json, actual);
+        assertEquals(expected, actual);
+    }
+
+    @Test
+    @DisplayName("withColumn: 사칙연산(/) - wt_div_2 = wt / 2")
+    void testWithColumnArithmeticDivide() throws Exception {
+        String json = "{\n"
+                + "  \"steps\": [\n"
+                + "    {\n"
+                + "      \"node\": \"withColumn\",\n"
+                + "      \"input\": \"df\",\n"
+                + "      \"output\": \"df_out\",\n"
+                + "      \"params\": {\n"
+                + "        \"name\": \"wt_div_2\",\n"
+                + "        \"expr\": {\n"
+                + "          \"type\": \"op\",\n"
+                + "          \"op\": \"/\",\n"
+                + "          \"left\": { \"type\": \"col\", \"name\": \"wt\" },\n"
+                + "          \"right\": { \"type\": \"lit\", \"value\": 2 }\n"
+                + "        }\n"
+                + "      }\n"
+                + "    }\n"
+                + "  ]\n"
+                + "}";
+
+        String expected = "df_out = df.withColumn(\"wt_div_2\", (F.col(\"wt\") / F.lit(2)))\n";
+        String actual = PySparkChainGenerator.generate(json);
+
+        printTestInfo("testWithColumnArithmeticDivide", json, actual);
+        assertEquals(expected, actual);
+    }
+
+    @Test
+    @DisplayName("withColumn: 사칙연산(%) - age_mod_10 = age % 10")
+    void testWithColumnArithmeticModulo() throws Exception {
+        String json = "{\n"
+                + "  \"steps\": [\n"
+                + "    {\n"
+                + "      \"node\": \"withColumn\",\n"
+                + "      \"input\": \"df\",\n"
+                + "      \"output\": \"df_out\",\n"
+                + "      \"params\": {\n"
+                + "        \"name\": \"age_mod_10\",\n"
+                + "        \"expr\": {\n"
+                + "          \"type\": \"op\",\n"
+                + "          \"op\": \"%\",\n"
+                + "          \"left\": { \"type\": \"col\", \"name\": \"age\" },\n"
+                + "          \"right\": { \"type\": \"lit\", \"value\": 10 }\n"
+                + "        }\n"
+                + "      }\n"
+                + "    }\n"
+                + "  ]\n"
+                + "}";
+
+        String expected = "df_out = df.withColumn(\"age_mod_10\", (F.col(\"age\") % F.lit(10)))\n";
+        String actual = PySparkChainGenerator.generate(json);
+
+        printTestInfo("testWithColumnArithmeticModulo", json, actual);
+        assertEquals(expected, actual);
+    }
+
+    @Test
+    @DisplayName("withColumn: 사칙연산(혼합) - bmi_like = (wt / (ht*ht)) * 10000")
+    void testWithColumnArithmeticMixed() throws Exception {
+        // bmi 비슷한 계산: (wt / (ht*ht)) * 10000
+        String json = "{\n"
+                + "  \"steps\": [\n"
+                + "    {\n"
+                + "      \"node\": \"withColumn\",\n"
+                + "      \"input\": \"df\",\n"
+                + "      \"output\": \"df_out\",\n"
+                + "      \"params\": {\n"
+                + "        \"name\": \"bmi_like\",\n"
+                + "        \"expr\": {\n"
+                + "          \"type\": \"op\",\n"
+                + "          \"op\": \"*\",\n"
+                + "          \"left\": {\n"
+                + "            \"type\": \"op\",\n"
+                + "            \"op\": \"/\",\n"
+                + "            \"left\": { \"type\": \"col\", \"name\": \"wt\" },\n"
+                + "            \"right\": {\n"
+                + "              \"type\": \"op\",\n"
+                + "              \"op\": \"*\",\n"
+                + "              \"left\": { \"type\": \"col\", \"name\": \"ht\" },\n"
+                + "              \"right\": { \"type\": \"col\", \"name\": \"ht\" }\n"
+                + "            }\n"
+                + "          },\n"
+                + "          \"right\": { \"type\": \"lit\", \"value\": 10000 }\n"
+                + "        }\n"
+                + "      }\n"
+                + "    }\n"
+                + "  ]\n"
+                + "}";
+
+        String expected = "df_out = df.withColumn(\"bmi_like\", ((F.col(\"wt\") / (F.col(\"ht\") * F.col(\"ht\"))) * F.lit(10000)))\n";
+        String actual = PySparkChainGenerator.generate(json);
+
+        printTestInfo("testWithColumnArithmeticMixed", json, actual);
+        assertEquals(expected, actual);
+    }
+
+    // ---------------------------
+    // try_* 산술 함수 테스트들
+    // (주의: 실제 PySpark 런타임에 F.try_divide 등이 존재해야 실행 가능.
+    // 여기서는 "코드 생성 결과"만 검증)
+    // ---------------------------
+
+    @Test
+    @DisplayName("withColumn: try_divide(col, lit) - safe_div = try_divide(wt, 2)")
+    void testWithColumnTryDivideLiteral() throws Exception {
+        String json = "{\n"
+                + "  \"steps\": [\n"
+                + "    {\n"
+                + "      \"node\": \"withColumn\",\n"
+                + "      \"input\": \"df\",\n"
+                + "      \"output\": \"df_out\",\n"
+                + "      \"params\": {\n"
+                + "        \"name\": \"safe_div\",\n"
+                + "        \"expr\": {\n"
+                + "          \"type\": \"func\",\n"
+                + "          \"name\": \"try_divide\",\n"
+                + "          \"args\": [\n"
+                + "            { \"type\": \"col\", \"name\": \"wt\" },\n"
+                + "            { \"type\": \"lit\", \"value\": 2 }\n"
+                + "          ]\n"
+                + "        }\n"
+                + "      }\n"
+                + "    }\n"
+                + "  ]\n"
+                + "}";
+
+        String expected = "df_out = df.withColumn(\"safe_div\", F.try_divide(F.col(\"wt\"), F.lit(2)))\n";
+        String actual = PySparkChainGenerator.generate(json);
+
+        printTestInfo("testWithColumnTryDivideLiteral", json, actual);
+        assertEquals(expected, actual);
+    }
+
+    @Test
+    @DisplayName("withColumn: try_multiply(col, lit) - safe_mul = try_multiply(wt, 2)")
+    void testWithColumnTryMultiplyLiteral() throws Exception {
+        String json = "{\n"
+                + "  \"steps\": [\n"
+                + "    {\n"
+                + "      \"node\": \"withColumn\",\n"
+                + "      \"input\": \"df\",\n"
+                + "      \"output\": \"df_out\",\n"
+                + "      \"params\": {\n"
+                + "        \"name\": \"safe_mul\",\n"
+                + "        \"expr\": {\n"
+                + "          \"type\": \"func\",\n"
+                + "          \"name\": \"try_multiply\",\n"
+                + "          \"args\": [\n"
+                + "            { \"type\": \"col\", \"name\": \"wt\" },\n"
+                + "            { \"type\": \"lit\", \"value\": 2 }\n"
+                + "          ]\n"
+                + "        }\n"
+                + "      }\n"
+                + "    }\n"
+                + "  ]\n"
+                + "}";
+
+        String expected = "df_out = df.withColumn(\"safe_mul\", F.try_multiply(F.col(\"wt\"), F.lit(2)))\n";
+        String actual = PySparkChainGenerator.generate(json);
+
+        printTestInfo("testWithColumnTryMultiplyLiteral", json, actual);
+        assertEquals(expected, actual);
+    }
+
+    @Test
+    @DisplayName("withColumn: try_add(col, lit) - safe_add = try_add(age, 10)")
+    void testWithColumnTryAddLiteral() throws Exception {
+        String json = "{\n"
+                + "  \"steps\": [\n"
+                + "    {\n"
+                + "      \"node\": \"withColumn\",\n"
+                + "      \"input\": \"df\",\n"
+                + "      \"output\": \"df_out\",\n"
+                + "      \"params\": {\n"
+                + "        \"name\": \"safe_add\",\n"
+                + "        \"expr\": {\n"
+                + "          \"type\": \"func\",\n"
+                + "          \"name\": \"try_add\",\n"
+                + "          \"args\": [\n"
+                + "            { \"type\": \"col\", \"name\": \"age\" },\n"
+                + "            { \"type\": \"lit\", \"value\": 10 }\n"
+                + "          ]\n"
+                + "        }\n"
+                + "      }\n"
+                + "    }\n"
+                + "  ]\n"
+                + "}";
+
+        String expected = "df_out = df.withColumn(\"safe_add\", F.try_add(F.col(\"age\"), F.lit(10)))\n";
+        String actual = PySparkChainGenerator.generate(json);
+
+        printTestInfo("testWithColumnTryAddLiteral", json, actual);
+        assertEquals(expected, actual);
+    }
+
+    @Test
+    @DisplayName("withColumn: try_subtract(col, lit) - safe_sub = try_subtract(age, 10)")
+    void testWithColumnTrySubtractLiteral() throws Exception {
+        String json = "{\n"
+                + "  \"steps\": [\n"
+                + "    {\n"
+                + "      \"node\": \"withColumn\",\n"
+                + "      \"input\": \"df\",\n"
+                + "      \"output\": \"df_out\",\n"
+                + "      \"params\": {\n"
+                + "        \"name\": \"safe_sub\",\n"
+                + "        \"expr\": {\n"
+                + "          \"type\": \"func\",\n"
+                + "          \"name\": \"try_subtract\",\n"
+                + "          \"args\": [\n"
+                + "            { \"type\": \"col\", \"name\": \"age\" },\n"
+                + "            { \"type\": \"lit\", \"value\": 10 }\n"
+                + "          ]\n"
+                + "        }\n"
+                + "      }\n"
+                + "    }\n"
+                + "  ]\n"
+                + "}";
+
+        String expected = "df_out = df.withColumn(\"safe_sub\", F.try_subtract(F.col(\"age\"), F.lit(10)))\n";
+        String actual = PySparkChainGenerator.generate(json);
+
+        printTestInfo("testWithColumnTrySubtractLiteral", json, actual);
+        assertEquals(expected, actual);
+    }
+
+    @Test
+    @DisplayName("withColumn: try_divide - 문자열 숫자 리터럴(\"2\")도 숫자로 취급(강제)되는지")
+    void testWithColumnTryDivideStringNumericLiteralCoercion() throws Exception {
+        // 이 테스트는 'COLUMN_COERCE_NUMERIC' 같은 패치를 적용했을 때만 통과하도록 의도한 케이스.
+        // 패치 전에는 F.lit(\"2\")가 되어 기대값이 달라짐.
+        String json = "{\n"
+                + "  \"steps\": [\n"
+                + "    {\n"
+                + "      \"node\": \"withColumn\",\n"
+                + "      \"input\": \"df\",\n"
+                + "      \"output\": \"df_out\",\n"
+                + "      \"params\": {\n"
+                + "        \"name\": \"safe_div2\",\n"
+                + "        \"expr\": {\n"
+                + "          \"type\": \"func\",\n"
+                + "          \"name\": \"try_divide\",\n"
+                + "          \"args\": [\n"
+                + "            { \"type\": \"col\", \"name\": \"wt\" },\n"
+                + "            { \"type\": \"lit\", \"value\": \"2\" }\n"
+                + "          ]\n"
+                + "        }\n"
+                + "      }\n"
+                + "    }\n"
+                + "  ]\n"
+                + "}";
+
+        String expected = "df_out = df.withColumn(\"safe_div2\", F.try_divide(F.col(\"wt\"), F.lit(2)))\n";
+        String actual = PySparkChainGenerator.generate(json);
+
+        printTestInfo("testWithColumnTryDivideStringNumericLiteralCoercion", json, actual);
+        assertEquals(expected, actual);
+    }
+
 }
