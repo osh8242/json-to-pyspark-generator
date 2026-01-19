@@ -332,7 +332,7 @@ public class FilterClauseTest {
                 + "  ]\n"
                 + "}";
 
-        String expected = "df_filtered = df.filter((F.col(\"country\")).isin(F.lit(\"USA\"), F.lit(\"CAN\"), F.lit(\"MEX\")))\n";
+        String expected = "df_filtered = df.filter((F.col(\"country\")).isin(\"USA\", \"CAN\", \"MEX\"))\n";
         String actual = PySparkChainGenerator.generate(json);
 
         printTestInfo("testFilterWithIsin", json, actual);
@@ -407,7 +407,7 @@ public class FilterClauseTest {
                 + "  ]\n"
                 + "}";
 
-        String expected = "df_filtered = df.filter(~((F.col(\"category\")).isin(F.lit(\"A\"), F.lit(\"B\"))))\n";
+        String expected = "df_filtered = df.filter(~((F.col(\"category\")).isin(\"A\", \"B\")))\n";
         String actual = PySparkChainGenerator.generate(json);
 
         printTestInfo("testFilterWithNotIsin", json, actual);
@@ -521,6 +521,83 @@ public class FilterClauseTest {
         String actual = PySparkChainGenerator.generate(json);
 
         printTestInfo("testFilterWithLikeLiteralUnderscore", json, actual);
+        assertEquals(expected, actual);
+    }
+
+    @Test
+    @DisplayName("Filter: isin values에 col + lit 혼합 테스트 (scalar isin)")
+    void testFilterWithIsinMixedColumnAndLiteral() throws Exception {
+        String json = "{\n"
+                + "  \"steps\": [\n"
+                + "    {\n"
+                + "      \"node\": \"filter\",\n"
+                + "      \"input\": \"df\",\n"
+                + "      \"output\": \"df_filtered\",\n"
+                + "      \"params\": {\n"
+                + "        \"condition\": {\n"
+                + "          \"type\": \"isin\",\n"
+                + "          \"expr\": { \"type\": \"col\", \"name\": \"country\" },\n"
+                + "          \"values\": [\n"
+                + "            { \"type\": \"lit\", \"value\": \"USA\" },\n"
+                + "            { \"type\": \"col\", \"name\": \"fallback_country\" },\n"
+                + "            { \"type\": \"lit\", \"value\": \"CAN\" }\n"
+                + "          ]\n"
+                + "        }\n"
+                + "      }\n"
+                + "    }\n"
+                + "  ]\n"
+                + "}";
+
+        // lit 은 RAW로 들어가고, col 은 그대로 F.col(...) 로 들어가는지 확인
+        String expected =
+                "df_filtered = df.filter((F.col(\"country\")).isin(\"USA\", F.col(\"fallback_country\"), \"CAN\"))\n";
+
+        String actual = PySparkChainGenerator.generate(json);
+
+        printTestInfo("testFilterWithIsinMixedColumnAndLiteral", json, actual);
+        assertEquals(expected, actual);
+    }
+
+    @Test
+    @DisplayName("Filter: tuple isin에서 struct(v1, v2)에 col + lit 혼합 테스트")
+    void testFilterWithTupleIsinMixedColumnAndLiteral() throws Exception {
+        String json = "{\n"
+                + "  \"steps\": [\n"
+                + "    {\n"
+                + "      \"node\": \"filter\",\n"
+                + "      \"input\": \"df\",\n"
+                + "      \"output\": \"df_filtered\",\n"
+                + "      \"params\": {\n"
+                + "        \"condition\": {\n"
+                + "          \"type\": \"isin\",\n"
+                + "          \"expr\": [\n"
+                + "            { \"type\": \"col\", \"name\": \"col1\" },\n"
+                + "            { \"type\": \"col\", \"name\": \"col2\" }\n"
+                + "          ],\n"
+                + "          \"values\": [\n"
+                + "            [\n"
+                + "              { \"type\": \"lit\", \"value\": \"v1\" },\n"
+                + "              { \"type\": \"col\", \"name\": \"ref_col2\" }\n"
+                + "            ],\n"
+                + "            [\n"
+                + "              { \"type\": \"col\", \"name\": \"ref_col1\" },\n"
+                + "              { \"type\": \"lit\", \"value\": \"x2\" }\n"
+                + "            ]\n"
+                + "          ]\n"
+                + "        }\n"
+                + "      }\n"
+                + "    }\n"
+                + "  ]\n"
+                + "}";
+
+        String expected =
+                "df_filtered = df.filter((F.struct(F.col(\"col1\"), F.col(\"col2\"))).isin("
+                        + "F.struct(F.lit(\"v1\"), F.col(\"ref_col2\")), "
+                        + "F.struct(F.col(\"ref_col1\"), F.lit(\"x2\"))))\n";
+
+        String actual = PySparkChainGenerator.generate(json);
+
+        printTestInfo("testFilterWithTupleIsinMixedColumnAndLiteral", json, actual);
         assertEquals(expected, actual);
     }
 

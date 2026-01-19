@@ -240,25 +240,25 @@ public class ExpressionBuilder {
      * <p>
      * 스칼라 예시:
      * {
-     *   "type": "isin",
-     *   "expr": { ... },
-     *   "values": [ { ... }, { ... } ]
+     * "type": "isin",
+     * "expr": { ... },
+     * "values": [ { ... }, { ... } ]
      * }
-     *  => (expr).isin(v1, v2)
+     * => (expr).isin(v1, v2)
      * <p>
      * 튜플 예시:
      * {
-     *   "type": "isin",
-     *   "expr": [ { ... }, { ... } ],
-     *   "values": [
-     *     [ { ... }, { ... } ],
-     *     [ { ... }, { ... } ]
-     *   ]
+     * "type": "isin",
+     * "expr": [ { ... }, { ... } ],
+     * "values": [
+     * [ { ... }, { ... } ],
+     * [ { ... }, { ... } ]
+     * ]
      * }
-     *  => struct(expr1, expr2).isin(
-     *         struct(v1a, v2a),
-     *         struct(v1b, v2b)
-     *     )
+     * => struct(expr1, expr2).isin(
+     * struct(v1a, v2a),
+     * struct(v1b, v2b)
+     * )
      */
     private String buildIsin(JsonNode e, ExpressionContext context) {
         JsonNode exprNode = e.get("expr");
@@ -282,27 +282,40 @@ public class ExpressionBuilder {
         ArrayNode values = (ArrayNode) e.get("values");
         List<String> valueParts = new ArrayList<>();
 
+        // ✅ 스칼라 isin 전용: 값 리터럴은 RAW로 렌더링 (F.lit 제거)
+        ExpressionContext scalarIsinValueCtx =
+                context.withLiteralMode(ExpressionContext.LiteralMode.RAW);
+
         if (values != null) {
             for (JsonNode v : values) {
                 if (tupleMode) {
-                    // values[i] 도 배열: [ v1, v2, ... ] → struct(v1, v2, ...)
+                    // 튜플 모드는 struct 인자들이 Column이어야 하므로 기존 컨텍스트 유지 (F.lit 유지)
                     List<String> items = new ArrayList<>();
                     for (JsonNode item : v) {
                         items.add(buildExpr(item, context));
                     }
                     valueParts.add("F.struct(" + String.join(", ", items) + ")");
                 } else {
-                    // 기존 스칼라 모드
-                    valueParts.add(buildExpr(v, context));
+                    // 스칼라 모드: v가 lit이면 RAW로
+                    String vType = StringUtil.getText(v, "type", null);
+                    if ("lit".equals(vType)) {
+                        valueParts.add(buildExpr(v, scalarIsinValueCtx));
+                    } else {
+                        // 선택 1) 허용: 복합 expr는 기존 방식
+                        valueParts.add(buildExpr(v, context));
+
+                        // 선택 2) 엄격: lit만 허용하려면 예외로 막기
+                        // throw new RecipeExpressionException("isin values must be literal in scalar mode. expr=" + v);
+                    }
                 }
             }
         }
 
         String isinExpr = "(" + exprPart + ").isin(" + String.join(", ", valueParts) + ")";
-
         boolean neg = e.has("not") && e.get("not").asBoolean(false);
         return neg ? "~(" + isinExpr + ")" : isinExpr;
     }
+
 
     /**
      * 'like' 표현식을 생성합니다. (rlike 등도 동일하게 사용 가능)
