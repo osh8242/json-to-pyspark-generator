@@ -4,12 +4,12 @@
 UI나 다른 서비스가 Spark 연산 시퀀스(Load, Select, Filter, Join 등)를 JSON으로 만들어 보내면, 이 라이브러리가 그 JSON을 파싱해서 재귀 서브쿼리, 표현식 빌딩, `show`(테이블 미리보기 또는 JSON/CSV 출력), `save` 같은 헬퍼 액션까지 포함한 완성된 PySpark 스크립트를 만들어 줍니다.
 
 ## 주요 특징
-- **단계별 PySpark 코드 생성** – `PySparkChainGenerator`가 `steps[]`의 각 엔트리(load, select, filter, join, groupBy, agg, orderBy, limit, distinct, drop, withColumn* 등)를 순차적으로 처리하며, 체이닝된 PySpark DataFrame 코드를 관용적인 스타일로 생성합니다.
-- **풍부한 Expression Builder** – `ExpressionBuilder`를 통해 컬럼, 리터럴, 이항/불리언 연산, 중첩 함수, CASE, BETWEEN, IS IN(튜플 지원), LIKE, (is) null 검사 등을 표현할 수 있습니다.
-- **컨텍스트 기반 리터럴 렌더링** – `ExpressionContext`가 함수 인자별로 리터럴을 `F.lit(...)` 또는 원시 값으로 구분하여 생성해, `concat_ws`, `regexp_replace`, `date_format` 등에서 기대하는 PySpark 시그니처를 유지합니다.
-- **재귀 Join & 서브쿼리 지원** – join의 `right` 측에 또 다른 레시피(JSON)를 중첩해서 넣을 수 있으며, 제너레이터가 이를 재귀적으로 처리하면서 alias와 들여쓰기를 자동으로 맞춰 줍니다.
-- **액션 헬퍼** – `show`(전통적인 `.show()` 프리뷰 또는 JSON/JSONL/CSV 덤프)와 `save`(JDBC/Postgres 저장) 같은 비-할당 액션을 독립된 문장으로 렌더링합니다.
-- **테이블 탐색 기능** – `PySparkChainGenerator.extractTables(json)`은 입력·load·join 정보를 스캔해서 참조된 모든 테이블/데이터프레임 목록을 추출해 주며, 계보(lineage)나 의존성 분석에 활용할 수 있습니다.
+- **단계별 PySpark 코드 생성** – `PySparkChainGenerator`가 `steps[]`를 순차 처리해 PySpark DataFrame 체인 코드를 생성합니다.
+- **표현식 DSL 지원** – `ExpressionBuilder`로 컬럼, 리터럴, 이항/불리언 연산, 함수, CASE, BETWEEN, IS IN(튜플 지원), LIKE, NULL 검사 등을 표현합니다.
+- **컨텍스트 기반 리터럴 렌더링** – 함수 인자별로 `F.lit(...)` 또는 raw literal을 사용해 PySpark 시그니처를 유지합니다.
+- **재귀 Join & 서브쿼리 지원** – join의 `right`에 또 다른 레시피(JSON)를 중첩하면 재귀적으로 서브체인을 생성합니다.
+- **액션 헬퍼** – `show`(표준 `.show()` 또는 JSON/JSONL/CSV 출력), `save`(JDBC 저장), `print` 등을 독립 문장으로 렌더링합니다.
+- **확장 가능한 스텝 구조** – `StepRegistry` + `StepHandler` 기반으로 스텝 추가가 쉽습니다.
 
 ## Project layout
 ```
@@ -18,7 +18,16 @@ UI나 다른 서비스가 Spark 연산 시퀀스(Load, Select, Filter, Join 등)
     │ ├── PySparkChainGenerator.java # 진입점 & 전체 오케스트레이션
     │ ├── builder
     │ │ ├── StepBuilder.java # 스텝 단위 렌더링
-    │ │ └── ExpressionBuilder.java # Expression DSL → PySpark 변환
+    │ │ ├── ExpressionBuilder.java # Expression DSL → PySpark 변환
+    │ │ └── ExpressionContext.java # 리터럴 렌더링 컨텍스트
+    │ ├── codegen
+    │ │ ├── CodeWriter.java # 코드 조립 (persist 포함)
+    │ │ └── CodegenContext.java # 전역 기본값
+    │ ├── step
+    │ │ ├── StepRegistry.java # node -> handler 매핑/검증
+    │ │ ├── StepHandler.java # 핸들러 인터페이스
+    │ │ └── handlers # load/transform/action 핸들러들
+    │ ├── exception # RecipeStep/Expression 예외
     │ └── util/StringUtil.java # JSON 헬퍼 & quoting 유틸
     └── util # 범용 JSON/날짜 헬퍼
 ```
@@ -33,6 +42,12 @@ UI나 다른 서비스가 Spark 연산 시퀀스(Load, Select, Filter, Join 등)
 mvn clean package
 ```
 This produces `target/json-to-pyspark-generator-<version>.jar` which can be added to other JVM services.
+
+## 빠른 개념 정리
+- **steps[]**: 변환/액션의 순서
+- **node**: 작업 이름 (예: `load`, `select`, `filter`, `join`, `show`, `save`, `count`)
+- **input/output**: 입력/결과 DF 이름 (없으면 기본값 또는 in-place 처리)
+- **params**: 각 node별 옵션
 
 ## JSON schema at a glance
 At the top level the generator expects a JSON document with a `steps` array. Each step has:
@@ -147,17 +162,10 @@ filtered.show(5, truncate=False)
 ```
 `PySparkChainGenerator.buildChain` 은 이 중첩 레시피를 렌더링하고, 들여쓰기를 맞춘 뒤 join 호출의 오른쪽 DataFrame으로 삽입합니다.
 
-### 참조된 테이블 탐색
-```java
-Set<String> tables = PySparkChainGenerator.extractTables(recipeJson);
-// -> ["orders_df", "customers_df", "hadoop_prod.sales.orders", "customer_dim"]
-```
-This is useful for pre-flight dependency checks or lineage visualizations.
-
 ## 제너레이터 확장 방법
 - Add new operations inside `StepBuilder` (e.g., window functions, dropna) and call them from the `switch` in `PySparkChainGenerator`.
 - Extend `ExpressionBuilder` with additional `type` handlers for new DSL constructs (e.g., `regexp_extract`).
 - Enhance output formatting by adjusting helper methods like `buildChain`, `indentLines`, or introducing templates.
 
 ## License
-이 저장소는 아직 별도의 라이선스를 명시하고 있지 않습니다. 외부로 재배포하기 전에 반드시 프로젝트 소유자와 확인해 주세요.
+아직 별도의 라이선스를 명시하고 있지 않습니다.
