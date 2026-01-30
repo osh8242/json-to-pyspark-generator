@@ -558,4 +558,128 @@ public class WithColumnClauseTest {
         assertEquals(expected, actual);
     }
 
+    @Test
+    @DisplayName("withColumn: date_format(btdt, \"yyyy\") - 연도만 추출")
+    void testWithColumnDateFormat_yyyy() throws Exception {
+        String json = "{\n"
+                + "  \"steps\": [\n"
+                + "    {\n"
+                + "      \"node\": \"withColumn\",\n"
+                + "      \"input\": \"df\",\n"
+                + "      \"output\": \"df_out\",\n"
+                + "      \"params\": {\n"
+                + "        \"name\": \"btdt_fmt\",\n"
+                + "        \"expr\": {\n"
+                + "          \"type\": \"func\",\n"
+                + "          \"name\": \"date_format\",\n"
+                + "          \"args\": [\n"
+                + "            { \"type\": \"col\", \"name\": \"btdt\" },\n"
+                + "            { \"type\": \"lit\", \"value\": \"yyyy\" }\n"
+                + "          ]\n"
+                + "        }\n"
+                + "      }\n"
+                + "    }\n"
+                + "  ]\n"
+                + "}";
+
+        String expected = "df_out = df.withColumn(\"btdt_fmt\", F.date_format(F.col(\"btdt\"), \"yyyy\"))\n";
+        String actual = PySparkChainGenerator.generate(json);
+
+        printTestInfo("testWithColumnDateFormat_yyyy", json, actual);
+        assertEquals(expected, actual);
+    }
+
+    @Test
+    @DisplayName("withColumn: date_format(btdt, \"yyyy.MM\") - 연월 추출")
+    void testWithColumnDateFormat_yyyyMM() throws Exception {
+        String json = "{\n"
+                + "  \"steps\": [\n"
+                + "    {\n"
+                + "      \"node\": \"withColumn\",\n"
+                + "      \"input\": \"df\",\n"
+                + "      \"output\": \"df_out\",\n"
+                + "      \"params\": {\n"
+                + "        \"name\": \"btdt_fmt\",\n"
+                + "        \"expr\": {\n"
+                + "          \"type\": \"func\",\n"
+                + "          \"name\": \"date_format\",\n"
+                + "          \"args\": [\n"
+                + "            { \"type\": \"col\", \"name\": \"btdt\" },\n"
+                + "            { \"type\": \"lit\", \"value\": \"yyyy.MM\" }\n"
+                + "          ]\n"
+                + "        }\n"
+                + "      }\n"
+                + "    }\n"
+                + "  ]\n"
+                + "}";
+
+        String expected = "df_out = df.withColumn(\"btdt_fmt\", F.date_format(F.col(\"btdt\"), \"yyyy.MM\"))\n";
+        String actual = PySparkChainGenerator.generate(json);
+
+        printTestInfo("testWithColumnDateFormat_yyyyMM", json, actual);
+        assertEquals(expected, actual);
+    }
+
+    @Test
+    @DisplayName("withColumn: date_format(btdt, \"yyyy.MM.dd\") - 연월일 추출(점 구분)")
+    void testWithColumnDateFormat_yyyyMMdd() throws Exception {
+        String json = "{\n"
+                + "  \"steps\": [\n"
+                + "    {\n"
+                + "      \"node\": \"withColumn\",\n"
+                + "      \"input\": \"df\",\n"
+                + "      \"output\": \"df_out\",\n"
+                + "      \"params\": {\n"
+                + "        \"name\": \"btdt_fmt\",\n"
+                + "        \"expr\": {\n"
+                + "          \"type\": \"func\",\n"
+                + "          \"name\": \"date_format\",\n"
+                + "          \"args\": [\n"
+                + "            { \"type\": \"col\", \"name\": \"btdt\" },\n"
+                + "            { \"type\": \"lit\", \"value\": \"yyyy.MM.dd\" }\n"
+                + "          ]\n"
+                + "        }\n"
+                + "      }\n"
+                + "    }\n"
+                + "  ]\n"
+                + "}";
+
+        String expected = "df_out = df.withColumn(\"btdt_fmt\", F.date_format(F.col(\"btdt\"), \"yyyy.MM.dd\"))\n";
+        String actual = PySparkChainGenerator.generate(json);
+
+        printTestInfo("testWithColumnDateFormat_yyyyMMdd", json, actual);
+        assertEquals(expected, actual);
+    }
+
+    @Test
+    @DisplayName("withColumn: date_format(btdt, \"yyyy.MM.dd HH:mm\") - 연월일시분 추출")
+    void testWithColumnDateFormat_yyyyMMddHHmm() throws Exception {
+        String json = "{\n"
+                + "  \"steps\": [\n"
+                + "    {\n"
+                + "      \"node\": \"withColumn\",\n"
+                + "      \"input\": \"df\",\n"
+                + "      \"output\": \"df_out\",\n"
+                + "      \"params\": {\n"
+                + "        \"name\": \"btdt_fmt\",\n"
+                + "        \"expr\": {\n"
+                + "          \"type\": \"func\",\n"
+                + "          \"name\": \"date_format\",\n"
+                + "          \"args\": [\n"
+                + "            { \"type\": \"col\", \"name\": \"btdt\" },\n"
+                + "            { \"type\": \"lit\", \"value\": \"yyyy.MM.dd HH:mm\" }\n"
+                + "          ]\n"
+                + "        }\n"
+                + "      }\n"
+                + "    }\n"
+                + "  ]\n"
+                + "}";
+
+        String expected = "df_out = df.withColumn(\"btdt_fmt\", F.date_format(F.col(\"btdt\"), \"yyyy.MM.dd HH:mm\"))\n";
+        String actual = PySparkChainGenerator.generate(json);
+
+        printTestInfo("testWithColumnDateFormat_yyyyMMddHHmm", json, actual);
+        assertEquals(expected, actual);
+    }
+
 }

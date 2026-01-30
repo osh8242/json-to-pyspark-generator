@@ -381,6 +381,7 @@ public class ExpressionBuilder {
                 // format (string) - 보통 2번째 인자
                 return argIndex == 1;
 
+            case "date_trunc":
             case "format_string":
                 // format (string) - 1번째 인자
                 return argIndex == 0;
@@ -465,6 +466,11 @@ public class ExpressionBuilder {
             // duration들은 raw string
             case "window":
                 return argIndex == 1 || argIndex == 2 || argIndex == 3;
+
+            case "get_json_object":
+                return argIndex == 1;
+            case "json_tuple":
+                return argIndex >= 1;
 
             default:
                 return false;
